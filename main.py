@@ -1,14 +1,14 @@
 
 from model import Understandable_Embedder
-from visualize import plot_history
 from data import find_all_occurence_and_replace
-
+import os
+import pickle
 from transformers import Trainer, TrainingArguments
 from transformers import DataCollatorForLanguageModeling
-import matplotlib.pyplot as plt
+
 
 if __name__ == "__main__":
-    batch_size = 8
+    batch_size = 4
     
  
     from transformers import BertTokenizer, glue_convert_examples_to_features
@@ -43,21 +43,20 @@ if __name__ == "__main__":
          
         model.compile(optimizer=optimizer, loss=loss,metrics=["sparse_categorical_accuracy"])
         
-        history_extra = model.fit_classify(train_dataset,tokenized_definition_train, epochs=2, steps_per_epoch=int(3600/batch_size)) #3600 datapoints
-        plt.plot(history_extra["loss_compare"], label = "loss_compare")
-        plt.plot(history_extra["loss"], label = "loss")
-        plt.show()
-        #model.save("model"+ task) cant save because model.build not called
+        
+        history_extra = model.fit_classify_understandable(train_dataset,tokenized_definition_train, epochs=2, steps_per_epoch=int(3600/batch_size)) #3600 datapoints
+        path = "model"+task
+        os.makedirs(path,exist_ok=True)
+        with open(path + "/understandable_history.txt", "wb") as fp:   
+            pickle.dump(history_extra, fp)
+        model.save_weights("model"+ task +"/understandable")# cant save because model.build not called
         
         model_normal = Understandable_Embedder(batch_size)
          
         model_normal.compile(optimizer=optimizer, loss=loss,metrics=["sparse_categorical_accuracy"])
         
       #  model.fit(train_dataset, epochs=2, steps_per_epoch=1840/batch_size) 
-        history = model_normal.fit(train_dataset, epochs=2, steps_per_epoch=int(3600/batch_size))
-        plt.plot(history_extra["loss_compare"], label = "loss_compare")
-        plt.plot(history_extra["loss"], label = "loss")
-        plt.plot(history.history['loss'], label = "loss_original")
-        plt.plot(history.history['sparse_categorical_accuracy'], label = "accuracy")
-        plt.show()
-       # model_normal.save("model"+ task)
+        history = model_normal.fit_classify(train_dataset, epochs=2, steps_per_epoch=int(3600/batch_size))
+        with open(path +"/normal_history.txt", "wb") as fp:   
+            pickle.dump(history.history, fp)
+        model.save_weights(path +"/normal")

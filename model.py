@@ -6,7 +6,7 @@ from tensorflow.keras import layers
 
 class Understandable_Embedder(tf.keras.Model):
     
-    def __init__(self, target_units=768, batch_size=8):
+    def __init__(self, batch_size = 8, target_units=768):
       super(Understandable_Embedder, self).__init__()
       self.batch_size = batch_size
       self.bert = TFBertForPreTraining.from_pretrained('bert-base-uncased')
@@ -78,23 +78,26 @@ class Understandable_Embedder(tf.keras.Model):
   
 
         
-    def fit_classify(self, dataset,definition_pairs,epochs,steps_per_epoch ):
+    def fit_classify_understandable(self, dataset,definition_pairs,epochs,steps_per_epoch , report_intervall = 20):
         self.bert.nsp.trainable = False
         self.bert.mlm.trainable = False
         history = {}
         history["loss"] = []
-        history["loss_compare"] = []       
+        history["loss_compare"] = []     
         for e in range(epochs):
             print("At epoch", e+1, "of", epochs)
             step = 0
             avg_loss = 0.0
             avg_loss_compare = 0.0
+            loss_report = 0.0
+            loss_report_compare = 0.0
             for x,y in dataset:
                 
                 if step > steps_per_epoch :
                     break
                 loss = self.normal_train_step(x,y)
                 avg_loss = avg_loss+float(loss)
+                loss_report = loss_report + +float(loss)
                 
                 self.dense.trainable = False
                 for current_attribute_id,attribute_set in enumerate(definition_pairs):
@@ -114,16 +117,47 @@ class Understandable_Embedder(tf.keras.Model):
                     feed_dict_2["attention_mask"] = attribute_set[1]["attention_mask"][start:stop,:]
                     
                    # print(feed_dict_1)    
-                    loss = self.compare_train_step(feed_dict_1,feed_dict_2,tf.constant(current_attribute_id),tf.constant(1.0/len(definition_pairs)))
-                    avg_loss_compare = avg_loss_compare+float(loss)  
+                    loss_compare = self.compare_train_step(feed_dict_1,feed_dict_2,tf.constant(current_attribute_id),tf.constant(1.0/len(definition_pairs)))
+                    avg_loss_compare = avg_loss_compare+float(loss_compare)  
+                    loss_report_compare = loss_report_compare + float(loss_compare) 
                 self.dense.trainable = True        
                         
                 step = step +1
-                if step % 20 == 0: 
-                    print("Average Training loss at step",step, "/", steps_per_epoch,":", avg_loss/step)
-                    print("Average Training loss_compare at step",step, "/", steps_per_epoch,":", avg_loss_compare/step)
-                    history["loss"].append(avg_loss/step)
-                    history["loss_compare"].append(avg_loss_compare/step)
+                if step % report_intervall == 0: 
+                    print("Average Training loss at step",step, "/", steps_per_epoch,":", loss_report/report_intervall)
+                    print("Average Training loss_compare at step",step, "/", steps_per_epoch,":", loss_report_compare/report_intervall)
+                    history["loss"].append(loss_report/report_intervall)
+                    history["loss_compare"].append(loss_report_compare/report_intervall)
+                    loss_report = 0.0
+                    loss_report_compare = 0.0
+ 
+        return history
+    
+    def fit_classify(self, dataset,epochs,steps_per_epoch , report_intervall = 20):
+        self.bert.nsp.trainable = False
+        self.bert.mlm.trainable = False
+        history = {}
+        history["loss"] = []
+        history["loss_compare"] = []     
+        for e in range(epochs):
+            print("At epoch", e+1, "of", epochs)
+            step = 0
+            avg_loss = 0.0
+            avg_loss_compare = 0.0
+            loss_report = 0.0
+            for x,y in dataset:
+                
+                if step > steps_per_epoch :
+                    break
+                loss = self.normal_train_step(x,y)
+                avg_loss = avg_loss+float(loss)
+                loss_report = loss_report + +float(loss)    
+                        
+                step = step +1
+                if step % report_intervall == 0: 
+                    print("Average Training loss at step",step, "/", steps_per_epoch,":", loss_report/report_intervall)
+                    history["loss"].append(loss_report/report_intervall)
+                    loss_report = 0.0
  
         return history
     
