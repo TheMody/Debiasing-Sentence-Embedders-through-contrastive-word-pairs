@@ -1,4 +1,4 @@
-from transformers import TFBertModel,TFBertForPreTraining
+from transformers import TFBertModel,TFBertForPreTraining, BertTokenizer
 from tensorflow import keras
 import tensorflow as tf
 from tensorflow.keras import layers
@@ -8,6 +8,7 @@ class Understandable_Embedder(tf.keras.Model):
     
     def __init__(self, batch_size = 8, target_units=768):
       super(Understandable_Embedder, self).__init__()
+      self.tokenizer = BertTokenizer.from_pretrained('bert-base-uncased', output_hidden_states=True)
       self.batch_size = batch_size
       self.bert = TFBertForPreTraining.from_pretrained('bert-base-uncased')
       self.dropout = layers.Dropout(0.2)
@@ -32,6 +33,15 @@ class Understandable_Embedder(tf.keras.Model):
       x = self.bert.bert(inputs,training=training)[1]
    #   x = self.dense_headless(x)
       return x
+  
+    def predict_simple(self,inputs):
+        inputs = self.tokenizer(inputs, max_length=128, padding=True, truncation=True, return_tensors='tf')
+        
+        x = self.bert.bert(inputs,training=False)[1]
+   #   x = self.dense_headless(x)
+
+        return x
+        
     
     @tf.function
     def normal_train_step(self,x,y):
