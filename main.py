@@ -15,10 +15,10 @@ if __name__ == "__main__":
     import tensorflow as tf
     import tensorflow_datasets as tfds
 #     definition_pairs = [[[" good ", " positive "],[" bad ", " negative "]],
-#                         [[" women ", " boy "],[" men ", " girl "]],                       
+#                         [[" women ", " girl "],[" men ", " boy "]],                       
 #                         [[" asian "],[" caucasian "],[" african "],[" european "],[" american "]],
 #                         [[" muslim ", " muslims "],[" jew ", " jews "], [" christian ", " christians "]]] 
-    definition_pairs =  [[[" women ", " boy "],[" men ", " girl "]]]
+    definition_pairs =  [[[" women ", " girl "],[" men ", " boy "]]]
     definiton_train = find_all_occurence_and_replace(definition_pairs)
     tokenizer = BertTokenizer.from_pretrained('bert-base-uncased', output_hidden_states=True)
     tokenized_definition_train=[]
