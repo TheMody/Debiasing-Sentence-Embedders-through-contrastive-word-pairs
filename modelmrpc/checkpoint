@@ -1,2 +1,2 @@
-model_checkpoint_path: "understandable"
-all_model_checkpoint_paths: "understandable"
+model_checkpoint_path: "normal"
+all_model_checkpoint_paths: "normal"

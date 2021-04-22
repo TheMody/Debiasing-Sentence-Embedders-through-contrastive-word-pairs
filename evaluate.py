@@ -116,7 +116,7 @@ def evaluate_model_bias(path):
             
         return x
     
-    def compare_metrics(log_file): # embeddings
+    def compare_metrics(seats,log_file): # embeddings
         f = open(log_file,"w")
         f.write("test;eff_weat;pval_weat;eff_own;own_bias_mean;own_std;mac;cluster\n")
         for test in seats.keys():
@@ -176,9 +176,9 @@ def evaluate_model_bias(path):
     #model.call_headless(inputs)
     
     emb = embed_sent(model.predict_simple)
-    seats = delete_dim_seats(seats)
+ #   seats = delete_dim_seats(seats)
     
-    compare_metrics("bert_finetuned_understandable_deleted_dim.csv")
+    compare_metrics(seats,"bert_finetuned.csv")
     
     
     
@@ -186,5 +186,5 @@ def evaluate_model_bias(path):
 
     
 if __name__ == "__main__":
-    evaluate_model_bias("modelmrpc/understandable")
+    evaluate_model_bias("modelmrpc/normal")
     #plot_history("modelmrpc")
