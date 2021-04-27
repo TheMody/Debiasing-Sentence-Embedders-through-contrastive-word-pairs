@@ -21,7 +21,7 @@ def plot_history(path):
    # plt.plot(normal_history['sparse_categorical_accuracy'], label = "accuracy")
     plt.show()
     
-def evaluate_model_bias(path):
+def evaluate_model_bias(modelpath, savepath, delete_dim=False):
 
     
     # load the tf news dataset
@@ -118,6 +118,7 @@ def evaluate_model_bias(path):
     
     def compare_metrics(seats,log_file): # embeddings
         f = open(log_file,"w")
+        print("opened file", log_file)
         f.write("test;eff_weat;pval_weat;eff_own;own_bias_mean;own_std;mac;cluster\n")
         for test in seats.keys():
             if not ('embeddings' in seats[test]['attr1'].keys() and 'embeddings' in seats[test]['targ1'].keys() and 'embeddings' in seats[test]['attr2'].keys() and 'embeddings' in seats[test]['targ2'].keys()):
@@ -172,13 +173,14 @@ def evaluate_model_bias(path):
     weat = WEAT(weat_metrics, own_metrics)
 
     model = Understandable_Embedder()
-    model.load_weights(path)
+    model.load_weights(modelpath)
     #model.call_headless(inputs)
     
     emb = embed_sent(model.predict_simple)
- #   seats = delete_dim_seats(seats)
+    if delete_dim:
+        seats = delete_dim_seats(seats)
     
-    compare_metrics(seats,"bert_finetuned.csv")
+    compare_metrics(seats,savepath)
     
     
     
@@ -186,5 +188,9 @@ def evaluate_model_bias(path):
 
     
 if __name__ == "__main__":
-    evaluate_model_bias("modelmrpc/normal")
+    import tensorflow as tf
+    tf.compat.v1.logging.set_verbosity(tf.compat.v1.logging.ERROR)
+    evaluate_model_bias("modelmrpc/normal", "results/bert_finetuned.csv")
+    evaluate_model_bias("modelmrpc/understandable","results/bert_finetuned_understandable.csv")
+    evaluate_model_bias("modelmrpc/understandable","results/bert_finetuned_understandable_deleted_dim.csv", True)
     #plot_history("modelmrpc")
