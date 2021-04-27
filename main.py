@@ -46,11 +46,11 @@ if __name__ == "__main__":
         
         
         history_extra = model.fit_classify_understandable(train_dataset,tokenized_definition_train, epochs=2, steps_per_epoch=int(3600/batch_size)) #3600 datapoints
-        path = "model"+task
+        path = "model"+task + "/understandable"
         os.makedirs(path,exist_ok=True)
         with open(path + "/understandable_history.txt", "wb") as fp:   
             pickle.dump(history_extra, fp)
-        model.save_weights("model"+ task +"/understandable")# cant save because model.build not called
+        model.save_weights(path +"/model")# cant save because model.build not called
         
         model_normal = Understandable_Embedder(batch_size)
          
@@ -60,4 +60,5 @@ if __name__ == "__main__":
         history = model_normal.fit_classify(train_dataset, epochs=2, steps_per_epoch=int(3600/batch_size))
         with open(path +"/normal_history.txt", "wb") as fp:   
             pickle.dump(history, fp)
-        model.save_weights(path +"/normal")
+        path = "model"+task + "/normal"
+        model_normal.save_weights(path +"/model")

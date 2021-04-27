@@ -112,8 +112,9 @@ def evaluate_model_bias(modelpath, savepath, delete_dim=False):
     
     def delete_dim(x,dims=[0]):
         for dim in dims:
+           # print(x.shape)
             x = np.concatenate((x[:,:dim],x[:,dim+1:]), axis = 1)
-            
+           # print(x.shape)
         return x
     
     def compare_metrics(seats,log_file): # embeddings
@@ -188,9 +189,10 @@ def evaluate_model_bias(modelpath, savepath, delete_dim=False):
 
     
 if __name__ == "__main__":
+#    plot_history("modelmrpc")
     import tensorflow as tf
     tf.compat.v1.logging.set_verbosity(tf.compat.v1.logging.ERROR)
-    evaluate_model_bias("modelmrpc/normal", "results/bert_finetuned.csv")
-    evaluate_model_bias("modelmrpc/understandable","results/bert_finetuned_understandable.csv")
-    evaluate_model_bias("modelmrpc/understandable","results/bert_finetuned_understandable_deleted_dim.csv", True)
+   # evaluate_model_bias("modelmrpc/normal/model", "results/bert_finetuned.csv")
+   # evaluate_model_bias("modelmrpc/understandable/model","results/bert_finetuned_understandable.csv")
+    evaluate_model_bias("modelmrpc/understandable/model","results/bert_finetuned_understandable_deleted_dim.csv", True)
     #plot_history("modelmrpc")
