@@ -194,17 +194,18 @@ class Understandable_Embedder(tf.keras.Model):
         labels = inputs.clone()
         
        # We sample a few tokens in each sequence for MLM training (with probability `self.mlm_probability`)
-        probability_matrix = torch.full(labels.shape, self.mlm_probability)
-        if special_tokens_mask is None:
-            special_tokens_mask = [
-                self.tokenizer.get_special_tokens_mask(val, already_has_special_tokens=True) for val in labels.tolist()
-            ]
-            special_tokens_mask = torch.tensor(special_tokens_mask, dtype=torch.bool)
-        else:
-            special_tokens_mask = special_tokens_mask.bool()
+        probability_matrix = tf.fill(labels.shape, self.mlm_probability)
+      #  if special_tokens_mask is None:
+        special_tokens_mask = [
+            self.tokenizer.get_special_tokens_mask(val, already_has_special_tokens=True) for val in labels.tolist()
+        ]
+        special_tokens_mask = tf.constant(special_tokens_mask, dtype=tf.bool)
+#         else:
+#             special_tokens_mask = special_tokens_mask.bool()
         
-        probability_matrix.masked_fill_(special_tokens_mask, value=0.0)
-        masked_indices = torch.bernoulli(probability_matrix).bool()
+        special_token_indices = tf.where(special_tokens_mask)
+        probability_matrix[special_token_indices] = 0.0
+        masked_indices = tfp.distributions.Bernoulli(probs = probability_matrix).sample(probability_matrix.shape)
         labels[~masked_indices] = -100
         
         
