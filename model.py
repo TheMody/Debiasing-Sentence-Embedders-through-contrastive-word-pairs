@@ -6,15 +6,19 @@ from tensorflow.keras import layers
 
 class Understandable_Embedder(tf.keras.Model):
     
-    def __init__(self, batch_size = 8, target_units=768):
+    def __init__(self, batch_size = 8, target_units=768, train_only_dense=False, contrastive_scale = 0.01):
       super(Understandable_Embedder, self).__init__()
       self.tokenizer = BertTokenizer.from_pretrained('bert-base-uncased', output_hidden_states=True)
       self.batch_size = batch_size
       self.bert = TFBertForPreTraining.from_pretrained('bert-base-uncased')
       self.dropout = layers.Dropout(0.2)
+      self.train_only_dense = train_only_dense
+      if self.train_only_dense:
+          self.dense_projection = layers.Dense(units = target_units)
       self.dense = layers.Dense(units = 2, activation = "softmax")
     #  self.dense_headless = layers.Dense(units = target_units, activation = "Relu")
       self.compare_loss = keras.losses.MeanSquaredError()
+      self.contrastive_scale = tf.constant(contrastive_scale)
       
     
     
@@ -22,24 +26,25 @@ class Understandable_Embedder(tf.keras.Model):
       x = self.bert.bert(inputs,training=training)[1]
     #  x = self.dense_headless(x)
       x = self.dropout(x,training=training)
+      if self.train_only_dense:
+          x = self.dense_projection(x)
       outputs = self.dense(x)
       return outputs
   
-    def call_pre_training(self, inputs, training = False):
+    def call_pre_training(self, inputs, training = True):
         prediction_scores,seq_relationship_score = self.bert(inputs,training=training)
         return prediction_scores,seq_relationship_score
     
     def call_headless(self, inputs, training = False):
       x = self.bert.bert(inputs,training=training)[1]
+      if self.train_only_dense:
+          x = self.dense_projection(x)
    #   x = self.dense_headless(x)
       return x
   
     def predict_simple(self,inputs):
         inputs = self.tokenizer(inputs, max_length=128, padding=True, truncation=True, return_tensors='tf')
-        
-        x = self.bert.bert(inputs,training=False)[1]
-   #   x = self.dense_headless(x)
-
+        x = self.call_headless(inputs,training=False)[1]
         return x
         
     
@@ -77,7 +82,8 @@ class Understandable_Embedder(tf.keras.Model):
           y_pred_2 = self.call_headless(x2, training=True)
           y_pred_1 = self.delete_dim(i,y_pred_1)
           y_pred_2 = self.delete_dim(i,y_pred_2)
-          loss = self.compare_loss(y_pred_1,y_pred_2)*loss_factor #scale loss by 1/number of set meaning dimensions
+          contrastive_loss = tf.math.minimum((1.0/self.compare_loss(y_pred_1[:,i],y_pred_2[:,i]))* self.contrastive_scale, self.contrastive_scale)
+          loss = (self.compare_loss(y_pred_1,y_pred_2) + contrastive_loss)*loss_factor #scale loss by 1/number of set meaning dimensions
        #   tf.multiply(loss[0,i], 0) 
       trainable_vars = self.trainable_variables
       gradients = tape.gradient(loss, trainable_vars)
@@ -91,6 +97,7 @@ class Understandable_Embedder(tf.keras.Model):
     def fit_classify_understandable(self, dataset,definition_pairs,epochs,steps_per_epoch , report_intervall = 20):
         self.bert.nsp.trainable = False
         self.bert.mlm.trainable = False
+        self.bert.bert.trainable = not self.train_only_dense
         history = {}
         history["loss"] = []
         history["loss_compare"] = []     
@@ -146,6 +153,7 @@ class Understandable_Embedder(tf.keras.Model):
     def fit_classify(self, dataset,epochs,steps_per_epoch , report_intervall = 20):
         self.bert.nsp.trainable = False
         self.bert.mlm.trainable = False
+        self.bert.bert.trainable = not self.train_only_dense
         history = {}
         history["loss"] = []
         history["loss_compare"] = []     
@@ -171,13 +179,41 @@ class Understandable_Embedder(tf.keras.Model):
  
         return history
     
+#     def compute_loss(self, labels: tf.Tensor, logits: tf.Tensor) -> tf.Tensor:
+#         loss_fn = tf.keras.losses.SparseCategoricalCrossentropy(
+#             from_logits=True, reduction=tf.keras.losses.Reduction.NONE
+#         )
+#         # make sure only labels that are not equal to -100
+#         # are taken into account as loss
+#         masked_lm_active_loss = tf.not_equal(tf.reshape(tensor=labels["labels"], shape=(-1,)), -100)
+#         masked_lm_reduced_logits = tf.boolean_mask(
+#             tensor=tf.reshape(tensor=logits[0], shape=(-1, shape_list(logits[0])[2])),
+#             mask=masked_lm_active_loss,
+#         )
+#         masked_lm_labels = tf.boolean_mask(
+#             tensor=tf.reshape(tensor=labels["labels"], shape=(-1,)), mask=masked_lm_active_loss
+#         )
+#         next_sentence_active_loss = tf.not_equal(tf.reshape(tensor=labels["next_sentence_label"], shape=(-1,)), -100)
+#         next_sentence_reduced_logits = tf.boolean_mask(
+#             tensor=tf.reshape(tensor=logits[1], shape=(-1, 2)), mask=next_sentence_active_loss
+#         )
+#         next_sentence_label = tf.boolean_mask(
+#             tensor=tf.reshape(tensor=labels["next_sentence_label"], shape=(-1,)), mask=next_sentence_active_loss
+#         )
+#         masked_lm_loss = loss_fn(y_true=masked_lm_labels, y_pred=masked_lm_reduced_logits)
+#         next_sentence_loss = loss_fn(y_true=next_sentence_label, y_pred=next_sentence_reduced_logits)
+#         masked_lm_loss = tf.reshape(tensor=masked_lm_loss, shape=(-1, shape_list(next_sentence_loss)[0]))
+#         masked_lm_loss = tf.reduce_mean(input_tensor=masked_lm_loss, axis=0)
+# 
+#         return masked_lm_loss + next_sentence_loss
     
-    @tf.function
+    
+   # @tf.function
     def pretrain_train_step(self,x,y):
       with tf.GradientTape() as tape:
-          y_pred = self.call_pre_training(x, training=True)  # Forward pass
+          trainingoutput = self.call_pre_training(x, training=True)  # Forward pass
           # Compute our own loss
-          loss = self.compiled_loss(y, y_pred, regularization_losses=self.losses)
+          loss = trainingoutput[0]
       
       # Compute gradients
       trainable_vars = self.trainable_variables

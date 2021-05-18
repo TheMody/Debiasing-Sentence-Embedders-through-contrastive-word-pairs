@@ -10,16 +10,46 @@ from numpy import linalg as LA
 import math
 
 def plot_history(path):
-    with open(path + "/understandable_history.txt", "rb") as fp:   # Unpickling
+    with open(path + "/understandable/understandable_history.txt", "rb") as fp:   # Unpickling
         understandable_history = pickle.load(fp)
-    with open(path +"/normal_history.txt", "rb") as fp:   # Unpickling
+    with open(path +"/understandable/normal_history.txt", "rb") as fp:   # Unpickling
         normal_history = pickle.load(fp)
-    plt.plot(understandable_history["loss_compare"], label = "loss_compare")
+  #  plt.plot(understandable_history["loss_compare"], label = "loss_compare")
     plt.plot(understandable_history["loss"], label = "loss")
     plt.plot(normal_history['loss'], label = "loss_original")
     plt.legend()
    # plt.plot(normal_history['sparse_categorical_accuracy'], label = "accuracy")
+    plt.savefig("History_race_gender.eps")
     plt.show()
+    
+def evaluate_model_accuracy(modelpath, task="mrpc"):
+    import tensorflow_datasets as tfds
+    from transformers import BertTokenizer, glue_convert_examples_to_features
+    tokenizer = BertTokenizer.from_pretrained('bert-base-uncased', output_hidden_states=True)  
+    
+    model = Understandable_Embedder()
+    model.load_weights(modelpath)
+    data = tfds.load('glue/'+task)
+    dataset_length = data['test'].cardinality().numpy()
+    dataset = glue_convert_examples_to_features(data['test'], tokenizer, max_length=128,  task=task)
+    batch_size = 4
+    dataset = dataset.batch(batch_size)
+    accuracy = 0.0
+    step = 0
+    
+    for x,y in dataset:
+        step = step + batch_size
+        if step > dataset_length :
+            break
+        y_pred = model(x)
+        if step % np.round(dataset_length/5) < batch_size: 
+            print("at", step, "of", dataset_length)
+        for i,pred in enumerate(y):
+            if np.argmax(y_pred[i].numpy()) == pred.numpy():
+                accuracy = accuracy +1.0
+    accuracy = accuracy /step
+    print("accuracy of model",modelpath, "on",task, "is",accuracy)
+    return accuracy
     
 def evaluate_model_bias(modelpath, savepath, delete_dim=False):
 
@@ -145,7 +175,7 @@ def evaluate_model_bias(modelpath, savepath, delete_dim=False):
             y = np.asarray([0]*len(seats[test]['targ1']['embeddings'])+[1]*len(seats[test]['targ2']['embeddings']))
           #  cluster_score = distance_tests.cluster_test(X_bef, y, num=2)
             
-            f.write(test+";"+str(esize)+";"+str(pval)+";"+str(esize2)+";"+str(bias_mean)+";"+str(bias_std)+";"+str(mac_score)+";"+"\n")
+            f.write(test+"&"+str(esize)+"&"+str(pval)+";&"+str(esize2)+"&"+str(bias_mean)+"&"+str(bias_std)+"&"+str(mac_score)+"\\"+"\n")
             
             # get single word biases
             #W = np.vstack([weats[test]['targ1']['embeddings'],weats[test]['targ2']['embeddings']])
@@ -184,15 +214,23 @@ def evaluate_model_bias(modelpath, savepath, delete_dim=False):
     compare_metrics(seats,savepath)
     
     
-    
+    # 3-5b european american vs african american pleasant vs unpleasant
+    # 6-8b  gender
+    # angry black woman racial
+    # double bind gender
     return
 
     
 if __name__ == "__main__":
-#    plot_history("modelmrpc")
+    
+    
+    #plot_history("race_modelmrpc")
     import tensorflow as tf
     tf.compat.v1.logging.set_verbosity(tf.compat.v1.logging.ERROR)
-   # evaluate_model_bias("modelmrpc/normal/model", "results/bert_finetuned.csv")
-   # evaluate_model_bias("modelmrpc/understandable/model","results/bert_finetuned_understandable.csv")
-    evaluate_model_bias("modelmrpc/understandable/model","results/bert_finetuned_understandable_deleted_dim.csv", True)
+    
+    evaluate_model_accuracy("race_modelmrpc/understandable/model")
+    evaluate_model_accuracy("race_modelmrpc/normal/model")
+#     evaluate_model_bias("race_modelmrpc/normal/model", "results/race_bert_finetuned.txt")
+#     evaluate_model_bias("race_modelmrpc/understandable/model","results/race_bert_finetuned_understandable.txt")
+#     evaluate_model_bias("race_modelmrpc/understandable/model","results/race_bert_finetuned_understandable_deleted_dim.txt", True)
     #plot_history("modelmrpc")
