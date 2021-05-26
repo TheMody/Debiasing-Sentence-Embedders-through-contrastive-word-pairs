@@ -31,7 +31,16 @@ def find_all_occurence_and_replace(definition_pairs, max_examples = 5000, max_le
     return definition_sentences
 
 
-
+def get_understanding_set(definition_pairs,tokenizer,max_examples = 10000):
+        definiton_train = find_all_occurence_and_replace(definition_pairs, max_examples = max_examples)
+        tokenized_definition_train=[]
+        for definition_set in definiton_train:
+            new_pair = []
+            for pair in definition_set:
+                new_def_set_pair = tokenizer(pair, max_length=128, padding=True, truncation=True, return_tensors='tf')
+                new_pair.append(new_def_set_pair)
+            tokenized_definition_train.append(new_pair)
+        return tokenized_definition_train
 
 
 

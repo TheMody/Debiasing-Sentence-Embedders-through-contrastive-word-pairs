@@ -2,6 +2,7 @@ from transformers import TFBertModel,TFBertForPreTraining, BertTokenizer
 from tensorflow import keras
 import tensorflow as tf
 from tensorflow.keras import layers
+import numpy as np
 
 
 class Understandable_Embedder(tf.keras.Model):
@@ -43,8 +44,8 @@ class Understandable_Embedder(tf.keras.Model):
       return x
   
     def predict_simple(self,inputs):
-        inputs = self.tokenizer(inputs, max_length=128, padding=True, truncation=True, return_tensors='tf')
-        x = self.call_headless(inputs,training=False)[1]
+        tokenized_inputs = self.tokenizer(inputs, max_length=128, padding=True, truncation=True, return_tensors='tf')
+        x = self.call_headless(tokenized_inputs,training=False)
         return x
         
     
@@ -76,21 +77,25 @@ class Understandable_Embedder(tf.keras.Model):
     
     @tf.function
     def compare_train_step(self,x1,x2,i,loss_factor):
-      with tf.GradientTape() as tape:
-    
-          y_pred_1 = self.call_headless(x1, training=True)  # Forward pass                    
-          y_pred_2 = self.call_headless(x2, training=True)
-          y_pred_1 = self.delete_dim(i,y_pred_1)
-          y_pred_2 = self.delete_dim(i,y_pred_2)
-          contrastive_loss = tf.math.minimum((1.0/self.compare_loss(y_pred_1[:,i],y_pred_2[:,i]))* self.contrastive_scale, self.contrastive_scale)
-          loss = (self.compare_loss(y_pred_1,y_pred_2) + contrastive_loss)*loss_factor #scale loss by 1/number of set meaning dimensions
+        with tf.GradientTape() as tape:
+        
+            y_pred_1 = self.call_headless(x1, training=True)  # Forward pass                    
+            y_pred_2 = self.call_headless(x2, training=True)
+            
+            contrastive_loss = (1.0/self.compare_loss(y_pred_1[:,i],y_pred_2[:,i]))* self.contrastive_scale
+            
+            y_pred_1 = self.delete_dim(i,y_pred_1)
+            y_pred_2 = self.delete_dim(i,y_pred_2)
+            if contrastive_loss < self.contrastive_scale*self.batch_size:
+                contrastive_loss = 0.0
+            loss = (self.compare_loss(y_pred_1,y_pred_2) + contrastive_loss)*loss_factor #scale loss by 1/number of set meaning dimensions
        #   tf.multiply(loss[0,i], 0) 
-      trainable_vars = self.trainable_variables
-      gradients = tape.gradient(loss, trainable_vars)
-      
-      # Update weights
-      self.optimizer.apply_gradients(zip(gradients, trainable_vars))
-      return loss
+        trainable_vars = self.trainable_variables
+        gradients = tape.gradient(loss, trainable_vars)
+        
+        # Update weights
+        self.optimizer.apply_gradients(zip(gradients, trainable_vars))
+        return loss
   
 
         
@@ -178,6 +183,24 @@ class Understandable_Embedder(tf.keras.Model):
                     loss_report = 0.0
  
         return history
+    
+    def evaluate(self, dataset, batch_size, dataset_length, verbose = False):
+        accuracy = 0.0
+        step = 0
+        
+        for x,y in dataset:
+            step = step + batch_size
+            if step > dataset_length :
+                break
+            y_pred = self(x)
+            if verbose:
+                if step % np.round(dataset_length/5) < batch_size: 
+                    print("at", step, "of", dataset_length)
+            for i,pred in enumerate(y):
+                if np.argmax(y_pred[i].numpy()) == pred.numpy():
+                    accuracy = accuracy +1.0
+        accuracy = accuracy /step
+        return accuracy
     
 #     def compute_loss(self, labels: tf.Tensor, logits: tf.Tensor) -> tf.Tensor:
 #         loss_fn = tf.keras.losses.SparseCategoricalCrossentropy(

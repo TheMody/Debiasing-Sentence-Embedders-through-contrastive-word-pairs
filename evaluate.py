@@ -8,6 +8,8 @@ import copy
 import numpy as np
 from numpy import linalg as LA
 import math
+from data import get_understanding_set
+from transformers import BertTokenizer, glue_convert_examples_to_features
 
 def plot_history(path):
     with open(path + "/understandable/understandable_history.txt", "rb") as fp:   # Unpickling
@@ -22,36 +24,63 @@ def plot_history(path):
     plt.savefig("History_race_gender.eps")
     plt.show()
     
-def evaluate_model_accuracy(modelpath, task="mrpc"):
-    import tensorflow_datasets as tfds
-    from transformers import BertTokenizer, glue_convert_examples_to_features
-    tokenizer = BertTokenizer.from_pretrained('bert-base-uncased', output_hidden_states=True)  
     
+def plot_average_history(path):
+    history_list_gender=[]
+    for i in range(9):
+        with open(path +"gender_con_" + str(i) + "/understandable_history.txt", "rb") as fp:   # Unpickling
+            understandable_history = pickle.load(fp)
+            history_list_gender.append(understandable_history)
+    generate_error_bound_plot(history_list_gender)
+    
+    history_list_race =[]
+    for i in range(9):
+        with open(path +"race_con_" + str(i) + "/understandable_history.txt", "rb") as fp:   # Unpickling
+            understandable_history = pickle.load(fp)
+            history_list_race.append(understandable_history)
+    generate_error_bound_plot(history_list_race, color=(0.1,0.6,0.1))
+    
+    history_list_normal=[]
+    for i in range(9):
+        with open(path +"normal_" + str(i) + "/normal_history.txt", "rb") as fp:   # Unpickling
+            understandable_history = pickle.load(fp)
+            history_list_normal.append(understandable_history)        
+    generate_error_bound_plot(history_list_normal, color=(0.6,0.1,0.1))
+    
+    plt.savefig("average_history.png")
+    
+def generate_error_bound_plot(history_list, color=(0.1,0.1,0.6)):
+    history_matrix=np.zeros((len(history_list),len(history_list[0]["loss"])))
+    for i,history in enumerate(history_list):
+        history_matrix[i,:]=history["loss"]
+    mean_history = np.mean(history_matrix,axis=0)
+    var_history = np.var(history_matrix,axis=0)
+    confidence_intervall = 1.96*np.sqrt(var_history)/np.sqrt(len(history_list))
+    confidence_intervall_upper = mean_history + confidence_intervall
+    confidence_intervall_lower =   mean_history - confidence_intervall
+    
+    boundcolor = (color[0]*1.5,color[1]*1.5,color[2]*1.5)
+    plt.plot(mean_history,c = color)
+    plt.plot(confidence_intervall_upper,c = boundcolor)
+    plt.plot(confidence_intervall_lower,c = boundcolor)
+    
+
+    
+def evaluate_model_accuracy(modelpath, eval_ds, dataset_length):    
     model = Understandable_Embedder()
     model.load_weights(modelpath)
-    data = tfds.load('glue/'+task)
-    dataset_length = data['test'].cardinality().numpy()
-    dataset = glue_convert_examples_to_features(data['test'], tokenizer, max_length=128,  task=task)
-    batch_size = 4
-    dataset = dataset.batch(batch_size)
-    accuracy = 0.0
-    step = 0
+
+    eval_ds = eval_ds.batch(batch_size)
+    return model.evaluate(eval_ds, batch_size, dataset_length)
+
+def evaluate_average_model_accuracy(path,eval_ds, dataset_length):
+    average = 0.0
+    for i in range(9):
+        average = average + evaluate_model_accuracy(path + str(i)+"/model", eval_ds, dataset_length)
+    average = average / 9.0
+    return average
     
-    for x,y in dataset:
-        step = step + batch_size
-        if step > dataset_length :
-            break
-        y_pred = model(x)
-        if step % np.round(dataset_length/5) < batch_size: 
-            print("at", step, "of", dataset_length)
-        for i,pred in enumerate(y):
-            if np.argmax(y_pred[i].numpy()) == pred.numpy():
-                accuracy = accuracy +1.0
-    accuracy = accuracy /step
-    print("accuracy of model",modelpath, "on",task, "is",accuracy)
-    return accuracy
-    
-def evaluate_model_bias(modelpath, savepath, delete_dim=False):
+def evaluate_model_bias(modelpath, savepath, delete_dim_bool=False):
 
     
     # load the tf news dataset
@@ -151,6 +180,7 @@ def evaluate_model_bias(modelpath, savepath, delete_dim=False):
         f = open(log_file,"w")
         print("opened file", log_file)
         f.write("test;eff_weat;pval_weat;eff_own;own_bias_mean;own_std;mac;cluster\n")
+        result_dict = {}
         for test in seats.keys():
             if not ('embeddings' in seats[test]['attr1'].keys() and 'embeddings' in seats[test]['targ1'].keys() and 'embeddings' in seats[test]['attr2'].keys() and 'embeddings' in seats[test]['targ2'].keys()):
                 print("skip "+test)
@@ -177,6 +207,13 @@ def evaluate_model_bias(modelpath, savepath, delete_dim=False):
             
             f.write(test+"&"+str(esize)+"&"+str(pval)+";&"+str(esize2)+"&"+str(bias_mean)+"&"+str(bias_std)+"&"+str(mac_score)+"\\"+"\n")
             
+            test_list = []
+            test_list.append(esize)
+            test_list.append(esize2)
+            test_list.append(mac_score)
+        
+            
+            result_dict[test] = test_list
             # get single word biases
             #W = np.vstack([weats[test]['targ1']['embeddings'],weats[test]['targ2']['embeddings']])
             #word_biases = [weat.own_metric.bias_w(w, A) for w in W]
@@ -184,6 +221,8 @@ def evaluate_model_bias(modelpath, savepath, delete_dim=False):
         # TODO run other tests
             
         f.close()
+        
+        return result_dict
         
     def delete_dim_seats(seats,dims=[0]):
         for test in seats.keys():
@@ -207,30 +246,152 @@ def evaluate_model_bias(modelpath, savepath, delete_dim=False):
     model.load_weights(modelpath)
     #model.call_headless(inputs)
     
+  #  print(model.predict_simple(["hallo du da", "ich bin hier"]))
+    
     emb = embed_sent(model.predict_simple)
-    if delete_dim:
+  #  print(emb)
+    
+   # print(delete_dim)
+    if delete_dim_bool:
         seats = delete_dim_seats(seats)
     
-    compare_metrics(seats,savepath)
+    result_dict = compare_metrics(seats,savepath)
     
     
     # 3-5b european american vs african american pleasant vs unpleasant
     # 6-8b  gender
     # angry black woman racial
     # double bind gender
-    return
+    return result_dict
+
+def word_correlation(word_pair, modelpath, dim = 0):
+    tokenizer = BertTokenizer.from_pretrained('bert-base-uncased', output_hidden_states=True)   
+    dataset = get_understanding_set(word_pair,tokenizer, max_examples = 1000)
+    
+    model = Understandable_Embedder()
+    model.load_weights(modelpath)
+    
+    batch_size = 4
+    steps = round(len(dataset[0][0]["input_ids"]) / batch_size)
+    
+    for i in range(0,steps):
+        feed_dict_1 = {}
+        feed_dict_1["input_ids"] = dataset[0][0]["input_ids"][i*batch_size:(i+1)*batch_size]
+        feed_dict_1["token_type_ids"] = dataset[0][0]["token_type_ids"][i*batch_size:(i+1)*batch_size]
+        feed_dict_1["attention_mask"] = dataset[0][0]["attention_mask"][i*batch_size:(i+1)*batch_size]
+        
+        feed_dict_2 = {}
+        feed_dict_2["input_ids"] = dataset[0][1]["input_ids"][i*batch_size:(i+1)*batch_size]
+        feed_dict_2["token_type_ids"] = dataset[0][1]["token_type_ids"][i*batch_size:(i+1)*batch_size]
+        feed_dict_2["attention_mask"] = dataset[0][1]["attention_mask"][i*batch_size:(i+1)*batch_size]
+        
+        if i == 0 :
+            original_emb = model.call_headless(feed_dict_1)
+            changed_emb = model.call_headless(feed_dict_2)
+        original_emb = np.concatenate((original_emb,model.call_headless(feed_dict_1)))
+        changed_emb = np.concatenate((changed_emb,model.call_headless(feed_dict_2)))
+    
+    change = np.mean(np.abs(original_emb[:,dim]- changed_emb[:,dim]))
+    change_other = np.sum(np.mean(np.abs(original_emb[:,dim:]- changed_emb[:,dim:]), axis = 0), axis = 0)
+    
+    print("change:",change)
+    print("change in other dimension:",change_other)
+    print("percent in right dim:", change/(change+change_other))
+    
+def evaluate_model_set(model_path, intervall_range, save_path = "results/finetuned.txt", delete_dim = False):
+    
+    result_dict = {}
+    for i in range(intervall_range):
+        dict = evaluate_model_bias(model_path+str(i) +"/model", "results/finetuned.txt", delete_dim_bool= delete_dim)
+        for test in dict:
+            if not test in result_dict:
+                result_dict[test] =[]
+            result_dict[test].append(dict[test])
+            
+    log_file = save_path
+    f = open(log_file,"w")
+    print("opened file", log_file)
+    f.write("test & weat & own & mac\\\n")
+    
+    average_dict = {}
+    for test in result_dict:
+        result_dict[test] = np.asarray(result_dict[test])
+        variance = np.var(result_dict[test], axis = 0 )
+        average_dict[test + "intervall"] = 1.96*np.sqrt(variance)/np.sqrt(result_dict[test].shape[0])
+        average_dict[test] = np.mean(np.abs(result_dict[test]), axis = 0)
+    #    print(test, average_dict[test], average_dict[test + "intervall"] )
+        f.write(test+"&"+str(round(average_dict[test][0], 2))+ " +/- " + str(round(average_dict[test + "intervall"][0], 2)) +"&"
+                +str(round(average_dict[test][1],2))+ " +/- " + str(round(average_dict[test + "intervall"][1], 2)) +"&"
+                +str(round(average_dict[test][2],2))+ " +/- " + str(round(average_dict[test + "intervall"][2], 2)) +"\\"+"\n")
+        
 
     
+  
+        
+    race_test = ["weat3", "weat3b", "weat4", "weat5", "weat5b", "angry_black_woman", "angry_black_woman2"]
+    gender_test = ["weat6", "weat6b", "weat7", "weat7b", "weat8b", "weat8", "double_bind_competent", "double_bind_likable"]
+    
+    race_list =[]
+    for test in race_test:
+        race_list.append(average_dict[test])
+    race_score = np.mean(race_list,axis = 0)
+    
+    gender_list =[]
+    for test in gender_test:
+        gender_list.append(average_dict[test])
+    gender_score = np.mean(gender_list,axis = 0)
+    
+    f.write("gender_score: "+ str(gender_score) + "\n")
+    f.write("race_score: "+ str(race_score) + "\n")
+    
+    
+    f.close()  
+    
 if __name__ == "__main__":
+    plot_average_history("results/")
     
     
     #plot_history("race_modelmrpc")
     import tensorflow as tf
+    gpus = tf.config.experimental.list_physical_devices('GPU')
+    for gpu in gpus:
+        tf.config.experimental.set_memory_growth(gpu, True)
     tf.compat.v1.logging.set_verbosity(tf.compat.v1.logging.ERROR)
     
-    evaluate_model_accuracy("race_modelmrpc/understandable/model")
-    evaluate_model_accuracy("race_modelmrpc/normal/model")
-#     evaluate_model_bias("race_modelmrpc/normal/model", "results/race_bert_finetuned.txt")
+#     import tensorflow_datasets as tfds
+#     from transformers import BertTokenizer, glue_convert_examples_to_features
+#     tokenizer = BertTokenizer.from_pretrained('bert-base-uncased', output_hidden_states=True)
+#     task = "mrpc"  
+#     data = tfds.load('glue/'+task)
+#     dataset_length = data['test'].cardinality().numpy()
+#     dataset = glue_convert_examples_to_features(data['test'], tokenizer, max_length=128,  task=task)
+#     batch_size = 4
+#     
+    word_pair=[[[" women "],[" men "]]]
+    word_correlation(word_pair, modelpath="results/normal_0/model")
+#      
+#     gender_acc = evaluate_average_model_accuracy("results/gender_con_", dataset, dataset_length)
+#     race_acc =  evaluate_average_model_accuracy("results/race_con_", dataset, dataset_length)
+#     acc = evaluate_average_model_accuracy("results/normal_", dataset, dataset_length)
+#      
+#     print("gender_acc:", gender_acc)
+#     print("race_acc:", race_acc)
+#     print("acc:", acc)
+ #   evaluate_model_accuracy("gender_only_dense/understandable/model", dataset)
+  #  evaluate_model_accuracy("race_only_dense/understandable/model", dataset)
+#     evaluate_model_accuracy("race_modelmrpc/understandable/model", dataset)
+#     evaluate_model_accuracy("gender_contrastive/understandable/model", dataset)
+#     evaluate_model_accuracy("race_contrastive/understandable/model", dataset)
+#     evaluate_model_accuracy("race_modelmrpc/normal/model", dataset)
+#     evaluate_model_accuracy("normal_5_epochs/normal/model", dataset)
+
+
+#     evaluate_model_set("results/gender_con_",9,"results/gender_con.txt")
+#     evaluate_model_set("results/race_con_",9,"results/race_con.txt")
+#     evaluate_model_set("results/normal_",9,"results/normal.txt")
+
+        
+        
 #     evaluate_model_bias("race_modelmrpc/understandable/model","results/race_bert_finetuned_understandable.txt")
 #     evaluate_model_bias("race_modelmrpc/understandable/model","results/race_bert_finetuned_understandable_deleted_dim.txt", True)
     #plot_history("modelmrpc")
