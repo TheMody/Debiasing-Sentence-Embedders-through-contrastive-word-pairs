@@ -92,7 +92,7 @@ if __name__ == "__main__":
         
         train_understandable(train_dataset,tokenized_definition_train_gender, save_path = ("test"))
         for i in range(5):
-            #train_normal(train_dataset, save_path = ("normal_"+str(i)))
+            train_normal(train_dataset, save_path = ("normal_"+str(i)))
          
              
             train_understandable(train_dataset,tokenized_definition_train_race, save_path = ("race_con_"+str(i))) 
