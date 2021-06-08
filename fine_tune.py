@@ -66,21 +66,23 @@ if __name__ == "__main__":
         
         return history
     
-#     definition_pairs = [[[" good ", " positive "],[" bad ", " negative "]],
-#                         [[" women ", " girl "],[" men ", " boy "]],                       
-#                         [[" asian ", "  Asian "],[" caucasian "," Caucasian "],[" african "," African "],[" european "," European "],[" american ", " American "]],
-#                         [[" muslim ", " muslims "],[" jew ", " jews "], [" christian ", " christians "]]]  [[[" women ", " girl "],[" men ", " boy "]]]
-#                         
-#     tokenized_definition_train_all = get_understanding_set(definition_pairs)
-    tokenizer = BertTokenizer.from_pretrained('bert-base-uncased', output_hidden_states=True)                                                                        
+    tokenizer = BertTokenizer.from_pretrained('bert-base-uncased', output_hidden_states=True)    
     
-    definition_pairs = [ [[" asian ", "  Asian "],[" caucasian "," Caucasian "],[" african "," African "],[" european "," European "],[" american ", " American "]]]
-
-    tokenized_definition_train_race = get_understanding_set(definition_pairs,tokenizer)
+    definition_pairs = [[[" good ", " positive "],[" bad ", " negative "]],
+                        [[" women ", " girl "],[" men ", " boy "]],                       
+                        [[" asian ", "  Asian "],[" caucasian "," Caucasian "],[" african "," African "],[" european "," European "],[" american ", " American "]],
+                        [[" muslim ", " muslims "],[" jew ", " jews "], [" christian ", " christians "]]] 
+                         
+    tokenized_definition_train_all = get_understanding_set(definition_pairs,tokenizer)
+                                                                        
     
-    definition_pairs = [[[" women ", " girl "],[" men ", " boy "]]]
-    
-    tokenized_definition_train_gender = get_understanding_set(definition_pairs,tokenizer)
+#     definition_pairs = [ [[" asian ", "  Asian "],[" caucasian "," Caucasian "],[" african "," African "],[" european "," European "],[" american ", " American "]]]
+# 
+#     tokenized_definition_train_race = get_understanding_set(definition_pairs,tokenizer)
+#     
+#     definition_pairs = [[[" women ", " girl "],[" men ", " boy "]]]
+#     
+#     tokenized_definition_train_gender = get_understanding_set(definition_pairs,tokenizer)
         
     #iterate over glue tasks
     task_list = ["mrpc"] #, "mnli"]
@@ -90,10 +92,10 @@ if __name__ == "__main__":
         train_dataset = glue_convert_examples_to_features(data['train'], tokenizer, max_length=128,  task=task)
         train_dataset = train_dataset.shuffle(100).batch(batch_size).repeat(2)
         
-        train_understandable(train_dataset,tokenized_definition_train_gender, save_path = ("test"))
+      #  train_understandable(train_dataset,tokenized_definition_train_gender, save_path = ("gender_con_0")) 
         for i in range(5):
-            train_normal(train_dataset, save_path = ("normal_"+str(i)))
-         
-             
-            train_understandable(train_dataset,tokenized_definition_train_race, save_path = ("race_con_"+str(i))) 
-            train_understandable(train_dataset,tokenized_definition_train_race, save_path = ("gender_con_"+str(i))) 
+           # train_normal(train_dataset, save_path = ("normal_"+str(i)))
+          
+            train_understandable(train_dataset,tokenized_definition_train_all, save_path = ("all_"+str(i)))   
+#             train_understandable(train_dataset,tokenized_definition_train_race, save_path = ("race_con_"+str(i))) 
+#             train_understandable(train_dataset,tokenized_definition_train_gender, save_path = ("gender_con_"+str(i))) 

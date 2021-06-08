@@ -18,7 +18,7 @@ class Understandable_Embedder(tf.keras.Model):
           self.dense_projection = layers.Dense(units = target_units)
       self.dense = layers.Dense(units = 2, activation = "softmax")
     #  self.dense_headless = layers.Dense(units = target_units, activation = "Relu")
-      self.compare_loss = keras.losses.MeanSquaredError()
+      self.compare_loss = keras.losses.MeanAbsoluteError()
       self.contrastive_scale = tf.constant(contrastive_scale)
       
     
@@ -84,11 +84,13 @@ class Understandable_Embedder(tf.keras.Model):
             
             contrastive_loss = (1.0/self.compare_loss(y_pred_1[:,i],y_pred_2[:,i]))* self.contrastive_scale
             
+#             if contrastive_loss < self.contrastive_scale*self.batch_size*2.0:
+#                 contrastive_loss = 0.0
+            
             y_pred_1 = self.delete_dim(i,y_pred_1)
             y_pred_2 = self.delete_dim(i,y_pred_2)
-            if contrastive_loss < self.contrastive_scale*self.batch_size:
-                contrastive_loss = 0.0
-            loss = (self.compare_loss(y_pred_1,y_pred_2) + contrastive_loss)*loss_factor #scale loss by 1/number of set meaning dimensions
+
+            loss = (self.compare_loss(y_pred_1,y_pred_2) + contrastive_loss*20.0)*loss_factor #scale loss by 1/number of set meaning dimensions
        #   tf.multiply(loss[0,i], 0) 
         trainable_vars = self.trainable_variables
         gradients = tape.gradient(loss, trainable_vars)
@@ -97,9 +99,9 @@ class Understandable_Embedder(tf.keras.Model):
         self.optimizer.apply_gradients(zip(gradients, trainable_vars))
         return loss
   
-
+    
         
-    def fit_classify_understandable(self, dataset,definition_pairs,epochs,steps_per_epoch , report_intervall = 20):
+    def fit_classify_understandable(self, dataset,definition_pairs,epochs,steps_per_epoch , report_intervall = 20, loss_factor = 10.0):
         self.bert.nsp.trainable = False
         self.bert.mlm.trainable = False
         self.bert.bert.trainable = not self.train_only_dense
@@ -109,8 +111,6 @@ class Understandable_Embedder(tf.keras.Model):
         for e in range(epochs):
             print("At epoch", e+1, "of", epochs)
             step = 0
-            avg_loss = 0.0
-            avg_loss_compare = 0.0
             loss_report = 0.0
             loss_report_compare = 0.0
             for x,y in dataset:
@@ -118,7 +118,6 @@ class Understandable_Embedder(tf.keras.Model):
                 if step > steps_per_epoch :
                     break
                 loss = self.normal_train_step(x,y)
-                avg_loss = avg_loss+float(loss)
                 loss_report = loss_report + +float(loss)
                 
                 self.dense.trainable = False
@@ -139,8 +138,7 @@ class Understandable_Embedder(tf.keras.Model):
                     feed_dict_2["attention_mask"] = attribute_set[1]["attention_mask"][start:stop,:]
                     
                    # print(feed_dict_1)    
-                    loss_compare = self.compare_train_step(feed_dict_1,feed_dict_2,tf.constant(current_attribute_id),tf.constant(1.0/len(definition_pairs)))
-                    avg_loss_compare = avg_loss_compare+float(loss_compare)  
+                    loss_compare = self.compare_train_step(feed_dict_1,feed_dict_2,tf.constant(current_attribute_id),tf.constant(loss_factor * 1.0/len(definition_pairs)))
                     loss_report_compare = loss_report_compare + float(loss_compare) 
                 self.dense.trainable = True        
                         
@@ -151,6 +149,45 @@ class Understandable_Embedder(tf.keras.Model):
                     history["loss"].append(loss_report/report_intervall)
                     history["loss_compare"].append(loss_report_compare/report_intervall)
                     loss_report = 0.0
+                    loss_report_compare = 0.0
+ 
+        return history
+    
+    def fit_understandable(self,definition_pairs,epochs,steps_per_epoch , report_intervall = 20):
+        self.bert.nsp.trainable = False
+        self.bert.mlm.trainable = False
+        self.dense.trainable = False
+        self.bert.bert.trainable = not self.train_only_dense
+        history = {}
+        history["loss_compare"] = []     
+        for e in range(epochs):
+            print("At epoch", e+1, "of", epochs)
+            loss_report_compare = 0.0
+            for step in range(steps_per_epoch):
+                
+                for current_attribute_id,attribute_set in enumerate(definition_pairs):
+                    start = ((e*steps_per_epoch +step)*self.batch_size) % len(attribute_set)
+                    stop = start + self.batch_size
+                    
+                    #one dictionary for each word
+                    feed_dict_1 = {}
+                    feed_dict_1["input_ids"] = attribute_set[0]["input_ids"][start:stop,:]
+                    feed_dict_1["token_type_ids"] = attribute_set[0]["token_type_ids"][start:stop,:]
+                    feed_dict_1["attention_mask"] = attribute_set[0]["attention_mask"][start:stop,:]
+                    
+                    #one dictionary for each word
+                    feed_dict_2 = {}
+                    feed_dict_2["input_ids"] = attribute_set[1]["input_ids"][start:stop,:]
+                    feed_dict_2["token_type_ids"] = attribute_set[1]["token_type_ids"][start:stop,:]
+                    feed_dict_2["attention_mask"] = attribute_set[1]["attention_mask"][start:stop,:]
+                    
+                   # print(feed_dict_1)    
+                    loss_compare = self.compare_train_step(feed_dict_1,feed_dict_2,tf.constant(current_attribute_id),tf.constant(1.0/len(definition_pairs)))
+                    loss_report_compare = loss_report_compare + float(loss_compare) 
+      
+                if step % report_intervall == 0: 
+                    print("Average Training loss_compare at step",step, "/", steps_per_epoch,":", loss_report_compare/report_intervall)
+                    history["loss_compare"].append(loss_report_compare/report_intervall)
                     loss_report_compare = 0.0
  
         return history

@@ -25,24 +25,24 @@ def plot_history(path):
     plt.show()
     
     
-def plot_average_history(path):
+def plot_average_history(path, intervall):
     history_list_gender=[]
-    for i in range(9):
-        with open(path +"gender_con_" + str(i) + "/understandable_history.txt", "rb") as fp:   # Unpickling
+    for i in range(intervall):
+        with open(path +"gender_con_" + str(i) + "/history.txt", "rb") as fp:   # Unpickling
             understandable_history = pickle.load(fp)
             history_list_gender.append(understandable_history)
     generate_error_bound_plot(history_list_gender)
     
     history_list_race =[]
-    for i in range(9):
-        with open(path +"race_con_" + str(i) + "/understandable_history.txt", "rb") as fp:   # Unpickling
+    for i in range(intervall):
+        with open(path +"race_con_" + str(i) + "/history.txt", "rb") as fp:   # Unpickling
             understandable_history = pickle.load(fp)
             history_list_race.append(understandable_history)
     generate_error_bound_plot(history_list_race, color=(0.1,0.6,0.1))
     
     history_list_normal=[]
-    for i in range(9):
-        with open(path +"normal_" + str(i) + "/normal_history.txt", "rb") as fp:   # Unpickling
+    for i in range(intervall):
+        with open(path +"normal_" + str(i) + "/history.txt", "rb") as fp:   # Unpickling
             understandable_history = pickle.load(fp)
             history_list_normal.append(understandable_history)        
     generate_error_bound_plot(history_list_normal, color=(0.6,0.1,0.1))
@@ -73,11 +73,11 @@ def evaluate_model_accuracy(modelpath, eval_ds, dataset_length):
     eval_ds = eval_ds.batch(batch_size)
     return model.evaluate(eval_ds, batch_size, dataset_length)
 
-def evaluate_average_model_accuracy(path,eval_ds, dataset_length):
+def evaluate_average_model_accuracy(path,eval_ds, dataset_length, intervall):
     average = 0.0
-    for i in range(9):
+    for i in range(intervall):
         average = average + evaluate_model_accuracy(path + str(i)+"/model", eval_ds, dataset_length)
-    average = average / 9.0
+    average = average / intervall
     return average
     
 def evaluate_model_bias(modelpath, savepath, delete_dim_bool=False):
@@ -291,6 +291,10 @@ def word_correlation(word_pair, modelpath, dim = 0):
         original_emb = np.concatenate((original_emb,model.call_headless(feed_dict_1)))
         changed_emb = np.concatenate((changed_emb,model.call_headless(feed_dict_2)))
     
+    
+#     print(original_emb[:,dim])
+#     print(changed_emb[:,dim])
+#     print(original_emb[:,dim]- changed_emb[:,dim])
     change = np.mean(np.abs(original_emb[:,dim]- changed_emb[:,dim]))
     change_other = np.sum(np.mean(np.abs(original_emb[:,dim:]- changed_emb[:,dim:]), axis = 0), axis = 0)
     
@@ -348,7 +352,7 @@ def evaluate_model_set(model_path, intervall_range, save_path = "results/finetun
     f.close()  
     
 if __name__ == "__main__":
-    plot_average_history("results/")
+    #plot_average_history("results/", 5)
     
     
     #plot_history("race_modelmrpc")
@@ -358,26 +362,27 @@ if __name__ == "__main__":
         tf.config.experimental.set_memory_growth(gpu, True)
     tf.compat.v1.logging.set_verbosity(tf.compat.v1.logging.ERROR)
     
-#     import tensorflow_datasets as tfds
-#     from transformers import BertTokenizer, glue_convert_examples_to_features
-#     tokenizer = BertTokenizer.from_pretrained('bert-base-uncased', output_hidden_states=True)
-#     task = "mrpc"  
-#     data = tfds.load('glue/'+task)
-#     dataset_length = data['test'].cardinality().numpy()
-#     dataset = glue_convert_examples_to_features(data['test'], tokenizer, max_length=128,  task=task)
-#     batch_size = 4
-#     
-    word_pair=[[[" women "],[" men "]]]
-    word_correlation(word_pair, modelpath="results/normal_0/model")
-#      
-#     gender_acc = evaluate_average_model_accuracy("results/gender_con_", dataset, dataset_length)
-#     race_acc =  evaluate_average_model_accuracy("results/race_con_", dataset, dataset_length)
-#     acc = evaluate_average_model_accuracy("results/normal_", dataset, dataset_length)
-#      
+    import tensorflow_datasets as tfds
+    from transformers import BertTokenizer, glue_convert_examples_to_features
+    tokenizer = BertTokenizer.from_pretrained('bert-base-uncased', output_hidden_states=True)
+    task = "mrpc"  
+    data = tfds.load('glue/'+task)
+    dataset_length = data['test'].cardinality().numpy()
+    dataset = glue_convert_examples_to_features(data['test'], tokenizer, max_length=128,  task=task)
+    batch_size = 4
+     
+    word_pair=[[[" man "],[" woman "]]]
+    word_correlation(word_pair, modelpath="results/5Epochs_mae/gender_con_0/model", dim = 0)
+      
+#     gender_acc = evaluate_average_model_accuracy("results/gender_con_", dataset, dataset_length, 5)
+#     race_acc =  evaluate_average_model_accuracy("results/race_con_", dataset, dataset_length, 5)
+#  #   acc = evaluate_average_model_accuracy("results/normal_", dataset, dataset_length, 5)
+#        
 #     print("gender_acc:", gender_acc)
 #     print("race_acc:", race_acc)
-#     print("acc:", acc)
- #   evaluate_model_accuracy("gender_only_dense/understandable/model", dataset)
+  #  print("acc:", acc)
+ #   print(evaluate_model_accuracy("results/gender_con_0/model", dataset,dataset_length))
+    
   #  evaluate_model_accuracy("race_only_dense/understandable/model", dataset)
 #     evaluate_model_accuracy("race_modelmrpc/understandable/model", dataset)
 #     evaluate_model_accuracy("gender_contrastive/understandable/model", dataset)
@@ -385,13 +390,15 @@ if __name__ == "__main__":
 #     evaluate_model_accuracy("race_modelmrpc/normal/model", dataset)
 #     evaluate_model_accuracy("normal_5_epochs/normal/model", dataset)
 
-
-#     evaluate_model_set("results/gender_con_",9,"results/gender_con.txt")
-#     evaluate_model_set("results/race_con_",9,"results/race_con.txt")
-#     evaluate_model_set("results/normal_",9,"results/normal.txt")
+#     evaluate_model_set("results/gender_con_",1,"results/gender_con_mae.txt",delete_dim=False)
+#     evaluate_model_set("results/gender_con_",1,"results/gender_con_mae_del.txt",delete_dim=True)
+#     evaluate_model_set("results/race_con_",1,"results/race_con_mae.txt",delete_dim=False)
+#     evaluate_model_set("results/race_con_",1,"results/race_con_mae_del.txt",delete_dim=True)
+#     evaluate_model_set("results/race_con_",5,"results/race_con_del.txt",delete_dim=True)
+#     evaluate_model_set("results/normal_",5,"results/normal_del.txt",delete_dim=True)
 
         
         
-#     evaluate_model_bias("race_modelmrpc/understandable/model","results/race_bert_finetuned_understandable.txt")
+    #evaluate_model_bias("results/gender_con_0/model","results/race_higher_loss.txt")
 #     evaluate_model_bias("race_modelmrpc/understandable/model","results/race_bert_finetuned_understandable_deleted_dim.txt", True)
     #plot_history("modelmrpc")
