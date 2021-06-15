@@ -30,7 +30,22 @@ if __name__ == "__main__":
     
     # create additional ds
     
-
+    def train_understandable_only( understanding_dataset,only_dense = False, save_path = "model"):
+        optimizer = tf.keras.optimizers.Adam(learning_rate=3e-5)
+        loss = tf.keras.losses.SparseCategoricalCrossentropy()
+        model = Understandable_Embedder(batch_size, train_only_dense = only_dense)
+          
+        model.compile(optimizer=optimizer, loss=loss,metrics=["sparse_categorical_accuracy"])
+         
+         
+        history = model.fit_understandable(understanding_dataset, epochs=epochs, steps_per_epoch=int(3600/batch_size)) #3600 datapoints
+        path = "results/" + save_path
+        os.makedirs(path,exist_ok=True)
+        with open(path + "/history.txt", "wb") as fp:   
+            pickle.dump(history, fp)
+        model.save_weights(path +"/model")
+        
+        return history
     
     def train_understandable(train_dataset, understanding_dataset,only_dense = False, save_path = "model"):
         optimizer = tf.keras.optimizers.Adam(learning_rate=3e-5)
@@ -71,7 +86,7 @@ if __name__ == "__main__":
     definition_pairs = [[[" good ", " positive "],[" bad ", " negative "]],
                         [[" women ", " girl "],[" men ", " boy "]],                       
                         [[" asian ", "  Asian "],[" caucasian "," Caucasian "],[" african "," African "],[" european "," European "],[" american ", " American "]],
-                        [[" muslim ", " muslims "],[" jew ", " jews "], [" christian ", " christians "]]] 
+                        [[" Muslim ", " muslims "],[" Jew ", " jews "], [" Christian ", " christians "]]] 
                          
     tokenized_definition_train_all = get_understanding_set(definition_pairs,tokenizer)
                                                                         
@@ -80,22 +95,23 @@ if __name__ == "__main__":
 # 
 #     tokenized_definition_train_race = get_understanding_set(definition_pairs,tokenizer)
 #     
-#     definition_pairs = [[[" women ", " girl "],[" men ", " boy "]]]
-#     
-#     tokenized_definition_train_gender = get_understanding_set(definition_pairs,tokenizer)
+    definition_pairs = [[[" women ", " girl "],[" men ", " boy "]]]
+     
+    tokenized_definition_train_gender = get_understanding_set(definition_pairs,tokenizer)
         
     #iterate over glue tasks
-    task_list = ["mrpc"] #, "mnli"]
+    task_list = ["mrpc","cola"] #, "mnli"]
     for task in task_list:
         
         data = tfds.load('glue/'+task)
         train_dataset = glue_convert_examples_to_features(data['train'], tokenizer, max_length=128,  task=task)
         train_dataset = train_dataset.shuffle(100).batch(batch_size).repeat(2)
         
+        train_understandable_only(tokenized_definition_train_gender, save_path = (task+"only_understandable_gender"))
       #  train_understandable(train_dataset,tokenized_definition_train_gender, save_path = ("gender_con_0")) 
         for i in range(5):
            # train_normal(train_dataset, save_path = ("normal_"+str(i)))
-          
-            train_understandable(train_dataset,tokenized_definition_train_all, save_path = ("all_"+str(i)))   
+           # train_understandable_only(tokenized_definition_train_gender, save_path = (task+"only_understandable_gender_"+str(i)))
+            train_understandable(train_dataset,tokenized_definition_train_all, save_path = (task+"all_"+str(i)))   
 #             train_understandable(train_dataset,tokenized_definition_train_race, save_path = ("race_con_"+str(i))) 
 #             train_understandable(train_dataset,tokenized_definition_train_gender, save_path = ("gender_con_"+str(i))) 
