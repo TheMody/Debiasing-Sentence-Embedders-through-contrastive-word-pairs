@@ -83,12 +83,12 @@ if __name__ == "__main__":
     
     tokenizer = BertTokenizer.from_pretrained('bert-base-uncased', output_hidden_states=True)    
     
-    definition_pairs = [[[" good ", " positive "],[" bad ", " negative "]],
-                        [[" women ", " girl "],[" men ", " boy "]],                       
-                        [[" asian ", "  Asian "],[" caucasian "," Caucasian "],[" african "," African "],[" european "," European "],[" american ", " American "]],
-                        [[" Muslim ", " muslims "],[" Jew ", " jews "], [" Christian ", " christians "]]] 
-                         
-    tokenized_definition_train_all = get_understanding_set(definition_pairs,tokenizer)
+#     definition_pairs = [[[" good ", " positive "],[" bad ", " negative "]],
+#                         [[" women ", " girl "],[" men ", " boy "]],                       
+#                         [[" asian ", "  Asian "],[" caucasian "," Caucasian "],[" african "," African "],[" european "," European "],[" american ", " American "]],
+#                         [[" Muslim ", " muslims "],[" Jew ", " jews "], [" Christian ", " christians "]]] 
+#                           
+#     tokenized_definition_train_all = get_understanding_set(definition_pairs,tokenizer)
                                                                         
     
 #     definition_pairs = [ [[" asian ", "  Asian "],[" caucasian "," Caucasian "],[" african "," African "],[" european "," European "],[" american ", " American "]]]
@@ -96,22 +96,30 @@ if __name__ == "__main__":
 #     tokenized_definition_train_race = get_understanding_set(definition_pairs,tokenizer)
 #     
     definition_pairs = [[[" women ", " girl "],[" men ", " boy "]]]
-     
+      
     tokenized_definition_train_gender = get_understanding_set(definition_pairs,tokenizer)
+
+#     definition_pairs = [[[" women ", " girl ", " female ", " she ", " actress ", " heroine ", " queen "," sister ", " mother ", " lady " ],[" men ", " boy ", " male ", " he ", " actor ", " hero ", " king ", " brother ", " father ", " gentleman "]]]
+#      
+#     tokenized_definition_train_gender_large = get_understanding_set(definition_pairs,tokenizer)
         
     #iterate over glue tasks
-    task_list = ["mrpc","cola"] #, "mnli"]
+    task_list = [  "qnli", "sst2", "cola"] # "sst2",["mrpc"]#,"cola"] #, "mnli"]
     for task in task_list:
         
         data = tfds.load('glue/'+task)
-        train_dataset = glue_convert_examples_to_features(data['train'], tokenizer, max_length=128,  task=task)
-        train_dataset = train_dataset.shuffle(100).batch(batch_size).repeat(2)
+        if task == "sst2":
+           task_name = "sst-2"
+        else:
+            task_name = task
+        train_dataset = glue_convert_examples_to_features(data['train'], tokenizer, max_length=128,  task=task_name)
+        train_dataset = train_dataset.shuffle(100).batch(batch_size).repeat(-1)
         
-        train_understandable_only(tokenized_definition_train_gender, save_path = (task+"only_understandable_gender"))
+      #  train_understandable_only(tokenized_definition_train_gender, save_path = (task+"only_understandable_gender"))
       #  train_understandable(train_dataset,tokenized_definition_train_gender, save_path = ("gender_con_0")) 
         for i in range(5):
-           # train_normal(train_dataset, save_path = ("normal_"+str(i)))
-           # train_understandable_only(tokenized_definition_train_gender, save_path = (task+"only_understandable_gender_"+str(i)))
-            train_understandable(train_dataset,tokenized_definition_train_all, save_path = (task+"all_"+str(i)))   
+            train_normal(train_dataset, save_path = (task+ "_normal_"+str(i)))
+           #train_understandable_only(tokenized_definition_train_gender, save_path = (task+"gender_con_"+str(i)))
+           # train_understandable(train_dataset,tokenized_definition_train_all, save_path = (task+"all_"+str(i)))   
 #             train_understandable(train_dataset,tokenized_definition_train_race, save_path = ("race_con_"+str(i))) 
-#             train_understandable(train_dataset,tokenized_definition_train_gender, save_path = ("gender_con_"+str(i))) 
+          # train_understandable(train_dataset,tokenized_definition_train_gender, save_path = (task+"_gender_con_"+str(i))) 

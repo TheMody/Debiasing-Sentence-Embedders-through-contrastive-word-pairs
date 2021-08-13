@@ -365,20 +365,36 @@ if __name__ == "__main__":
     import tensorflow_datasets as tfds
     from transformers import BertTokenizer, glue_convert_examples_to_features
     tokenizer = BertTokenizer.from_pretrained('bert-base-uncased', output_hidden_states=True)
-    task = "mrpc"  
-    data = tfds.load('glue/'+task)
-    dataset_length = data['test'].cardinality().numpy()
-    dataset = glue_convert_examples_to_features(data['test'], tokenizer, max_length=128,  task=task)
     batch_size = 4
-     
-    word_pair=[[[" man "],[" woman "]]]
-    word_correlation(word_pair, modelpath="results/5Epochs_mae/gender_con_0/model", dim = 0)
-      
-#     gender_acc = evaluate_average_model_accuracy("results/gender_con_", dataset, dataset_length, 5)
-#     race_acc =  evaluate_average_model_accuracy("results/race_con_", dataset, dataset_length, 5)
-#  #   acc = evaluate_average_model_accuracy("results/normal_", dataset, dataset_length, 5)
+#     task = "cola"  
+#     data = tfds.load('glue/'+task)
+#     dataset_length = data['test'].cardinality().numpy()
+#     dataset = glue_convert_examples_to_features(data['test'], tokenizer, max_length=128,  task=task)
+#       
+#     gender_acc = evaluate_average_model_accuracy("results/GenderSmall/cola_gender_con_", dataset, dataset_length, 5)
+#     print("gender_acc cola:", gender_acc)
+#     task = "sst2"  
+#     data = tfds.load('glue/'+task)
+#     task = "sst-2" 
+#     dataset_length = data['validation'].cardinality().numpy()
+#     dataset = glue_convert_examples_to_features(data['validation'], tokenizer, max_length=128,  task=task)
+#     gender_acc = evaluate_average_model_accuracy("results/GenderSmall/sst2_gender_con_", dataset, dataset_length, 5)
+#     print("gender_acc sst2:", gender_acc)
+#     
+#     task = "qnli"  
+#     data = tfds.load('glue/'+task)
+#     dataset_length = data['validation'].cardinality().numpy()
+#     dataset = glue_convert_examples_to_features(data['validation'], tokenizer, max_length=128,  task=task)
+#     gender_acc = evaluate_average_model_accuracy("results/GenderSmall/qnli_gender_con_", dataset, dataset_length, 5)
+#     print("gender_acc qnli:", gender_acc)
+#    race_acc =  evaluate_average_model_accuracy("results/race_con_", dataset, dataset_length, 5)
+#   acc = evaluate_average_model_accuracy("results/normal_", dataset, dataset_length, 5)
 #        
-#     print("gender_acc:", gender_acc)
+
+
+#      
+# #     word_pair=[[[" man "],[" woman "]]]
+# #     word_correlation(word_pair, modelpath="results/5Epochs_mae/gender_con_0/model", dim = 0)    
 #     print("race_acc:", race_acc)
   #  print("acc:", acc)
  #   print(evaluate_model_accuracy("results/gender_con_0/model", dataset,dataset_length))
@@ -395,7 +411,9 @@ if __name__ == "__main__":
 #     evaluate_model_set("results/race_con_",1,"results/race_con_mae.txt",delete_dim=False)
 #     evaluate_model_set("results/race_con_",1,"results/race_con_mae_del.txt",delete_dim=True)
 #     evaluate_model_set("results/race_con_",5,"results/race_con_del.txt",delete_dim=True)
-#     evaluate_model_set("results/normal_",5,"results/normal_del.txt",delete_dim=True)
+    evaluate_model_set("results/GenderSmall/qnli_gender_con_",5,"results/GenderSmall/qnli_gender_con.txt",delete_dim=False)
+    evaluate_model_set("results/GenderSmall/sst2_gender_con_",5,"results/GenderSmall/sst2_gender_con.txt",delete_dim=False)
+   # evaluate_model_set("results/mrpc_genderlarge_con_",3,"results/mrpc_genderlarge_con_.txt",delete_dim=False)
 
         
         
