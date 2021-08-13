@@ -1,0 +1,16 @@
+
+accuracy of model normal_5_epochs/normal/model on mrpc is 0.7453703703703703   
+accuracy of model race_modelmrpc/normal/model on mrpc is 0.7494212962962963   
+accuracy of model race_modelmrpc/understandable/model on mrpc is 0.65625   
+accuracy of model race_contrastive/understandable/model on mrpc is 0.5572916666666666  
+accuracy of model gender_contrastive/understandable/model on mrpc is 0.7673611111111112  
+
+über 10 runs average mit 2 epochen training:  
+gender_acc: 0.7142489711934157
+race_acc: 0.7337962962962964 
+acc: 0.6807484567901235    
+
+über 5 runs average mit 5 epochen training:
+gender_acc: 0.6658564814814814
+race_acc: 0.7875
+acc: 0.6806712962962964     

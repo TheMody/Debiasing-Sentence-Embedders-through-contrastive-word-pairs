@@ -1,0 +1,5 @@
+gender_acc cola: 0.8187969924812031
+gender_acc sst2: 0.8660550458715596    
+gender_acc qnli: 0.8055636896046853   
+
+labels bei test set von sst2 und qnli sind kaputt also validation set genommen, okay da nirgendwo anders benutzt.

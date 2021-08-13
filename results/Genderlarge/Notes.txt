@@ -1,0 +1,2 @@
+gender_acc: 0.6807484567901234   for mrpc
+gender_acc: 0.7845864661654135   for cola
