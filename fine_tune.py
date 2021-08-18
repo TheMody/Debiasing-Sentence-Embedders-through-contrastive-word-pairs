@@ -47,6 +47,24 @@ if __name__ == "__main__":
         
         return history
     
+    def train_understandable_then_normal( train_dataset,understanding_dataset,only_dense = False, save_path = "model"):
+        optimizer = tf.keras.optimizers.Adam(learning_rate=3e-5)
+        loss = tf.keras.losses.SparseCategoricalCrossentropy()
+        model = Understandable_Embedder(batch_size, train_only_dense = only_dense)
+          
+        model.compile(optimizer=optimizer, loss=loss,metrics=["sparse_categorical_accuracy"])
+         
+         
+        history = model.fit_understandable(understanding_dataset, epochs=epochs, steps_per_epoch=int(3600/batch_size)) #3600 datapoints
+        history = model_normal.fit_classify(train_dataset, epochs=epochs, steps_per_epoch=int(3600/batch_size))
+        path = "results/" + save_path
+        os.makedirs(path,exist_ok=True)
+        with open(path + "/history.txt", "wb") as fp:   
+            pickle.dump(history, fp)
+        model.save_weights(path +"/model")
+        
+        return history
+    
     def train_understandable(train_dataset, understanding_dataset,only_dense = False, save_path = "model"):
         optimizer = tf.keras.optimizers.Adam(learning_rate=3e-5)
         loss = tf.keras.losses.SparseCategoricalCrossentropy()
@@ -95,13 +113,13 @@ if __name__ == "__main__":
 # 
 #     tokenized_definition_train_race = get_understanding_set(definition_pairs,tokenizer)
 #     
-#     definition_pairs = [[[" women ", " girl "],[" men ", " boy "]]]
-#       
-#     tokenized_definition_train_gender = get_understanding_set(definition_pairs,tokenizer)
+    definition_pairs = [[[" women ", " girl "],[" men ", " boy "]]]
+       
+    tokenized_definition_train_gender = get_understanding_set(definition_pairs,tokenizer)
 
-    definition_pairs = [[[" women ", " girl ", " female ", " she ", " actress ", " heroine ", " queen "," sister ", " mother ", " lady " ],[" men ", " boy ", " male ", " he ", " actor ", " hero ", " king ", " brother ", " father ", " gentleman "]]]
-      
-    tokenized_definition_train_gender_large = get_understanding_set(definition_pairs,tokenizer)
+#     definition_pairs = [[[" women ", " girl ", " female ", " she ", " actress ", " heroine ", " queen "," sister ", " mother ", " lady " ],[" men ", " boy ", " male ", " he ", " actor ", " hero ", " king ", " brother ", " father ", " gentleman "]]]
+#       
+#     tokenized_definition_train_gender_large = get_understanding_set(definition_pairs,tokenizer)
         
     #iterate over glue tasks
     task_list = [  "qnli", "sst2", "cola"] # "sst2",["mrpc"]#,"cola"] #, "mnli"]
@@ -120,6 +138,7 @@ if __name__ == "__main__":
         for i in range(5):
            # train_normal(train_dataset, save_path = (task+ "_normal_"+str(i)))
            #train_understandable_only(tokenized_definition_train_gender, save_path = (task+"gender_con_"+str(i)))
-            train_understandable(train_dataset,tokenized_definition_train_gender_large, save_path = (task+"_gender_large_"+str(i)))   
+           train_understandable(train_dataset,tokenized_definition_train_gender, save_path = (task+"_gender_"+str(i)))
+          # train_understandable_then_normal(train_dataset,tokenized_definition_train_gender, save_path = (task+"_staggered_gender_"+str(i)))   
 #             train_understandable(train_dataset,tokenized_definition_train_race, save_path = ("race_con_"+str(i))) 
           # train_understandable(train_dataset,tokenized_definition_train_gender, save_path = (task+"_gender_con_"+str(i))) 
