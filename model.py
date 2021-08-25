@@ -157,7 +157,7 @@ class Understandable_Embedder(tf.keras.Model):
         self.bert.nsp.trainable = False
         self.bert.mlm.trainable = False
         self.dense.trainable = False
-        self.bert.bert.trainable = not self.train_only_dense
+        self.bert.bert.trainable = True
         history = {}
         history["loss_compare"] = []     
         for e in range(epochs):
