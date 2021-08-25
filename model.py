@@ -269,11 +269,12 @@ class Understandable_Embedder(tf.keras.Model):
     
     
    # @tf.function
-    def pretrain_train_step(self,x,y):
-      with tf.GradientTape() as tape:
-          trainingoutput = self.call_pre_training(x, training=True)  # Forward pass
-          # Compute our own loss
-          loss = trainingoutput[0]
+    def pretrain_train_step(self,data):
+      for batch in data:
+          with tf.GradientTape() as tape:
+              trainingoutput = self.call_pre_training(batch, training=True)  # Forward pass
+              # Compute our own loss
+              loss = trainingoutput[0]
       
       # Compute gradients
       trainable_vars = self.trainable_variables
