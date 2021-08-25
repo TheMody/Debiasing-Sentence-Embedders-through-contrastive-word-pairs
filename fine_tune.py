@@ -3,7 +3,6 @@ from model import Understandable_Embedder
 from data import find_all_occurence_and_replace,load_pretrain_ds,get_understanding_set
 import os
 import pickle
-from transformers import Trainer, TrainingArguments
 from transformers import DataCollatorForLanguageModeling
 
 

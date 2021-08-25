@@ -11,7 +11,7 @@ class Understandable_Embedder(tf.keras.Model):
       super(Understandable_Embedder, self).__init__()
       self.tokenizer = BertTokenizer.from_pretrained('bert-base-uncased', output_hidden_states=True)
       self.batch_size = batch_size
-      self.bert = TFBertForPreTraining.from_pretrained('bert-base-uncased')
+      self.bert = TFBertForMaskedLM.from_pretrained('bert-base-uncased')
       self.dropout = layers.Dropout(0.2)
       self.train_only_dense = train_only_dense
       if self.train_only_dense:
@@ -20,6 +20,7 @@ class Understandable_Embedder(tf.keras.Model):
     #  self.dense_headless = layers.Dense(units = target_units, activation = "Relu")
       self.compare_loss = keras.losses.MeanAbsoluteError()
       self.contrastive_scale = tf.constant(contrastive_scale)
+      self.debiasing_freq = 10
       
     
     
@@ -33,8 +34,8 @@ class Understandable_Embedder(tf.keras.Model):
       return outputs
   
     def call_pre_training(self, inputs, training = True):
-        prediction_scores,seq_relationship_score = self.bert(inputs,training=training)
-        return prediction_scores,seq_relationship_score
+        outputs = self.bert(inputs,training=training)
+        return outputs
     
     def call_headless(self, inputs, training = False):
       x = self.bert.bert(inputs,training=training)[1]
@@ -102,7 +103,6 @@ class Understandable_Embedder(tf.keras.Model):
     
         
     def fit_classify_understandable(self, dataset,definition_pairs,epochs,steps_per_epoch , report_intervall = 20, loss_factor = 10.0):
-        self.bert.nsp.trainable = False
         self.bert.mlm.trainable = False
         self.bert.bert.trainable = not self.train_only_dense
         history = {}
@@ -154,7 +154,6 @@ class Understandable_Embedder(tf.keras.Model):
         return history
     
     def fit_understandable(self,definition_pairs,epochs,steps_per_epoch , report_intervall = 20):
-        self.bert.nsp.trainable = False
         self.bert.mlm.trainable = False
         self.dense.trainable = False
         self.bert.bert.trainable = True
@@ -193,7 +192,6 @@ class Understandable_Embedder(tf.keras.Model):
         return history
     
     def fit_classify(self, dataset,epochs,steps_per_epoch , report_intervall = 20):
-        self.bert.nsp.trainable = False
         self.bert.mlm.trainable = False
         self.bert.bert.trainable = not self.train_only_dense
         history = {}
@@ -270,11 +268,10 @@ class Understandable_Embedder(tf.keras.Model):
     
    # @tf.function
     def pretrain_train_step(self,data):
-      for batch in data:
-          with tf.GradientTape() as tape:
-              trainingoutput = self.call_pre_training(batch, training=True)  # Forward pass
-              # Compute our own loss
-              loss = trainingoutput[0]
+      with tf.GradientTape() as tape:
+          trainingoutput = self.call_pre_training(tape, training=True)  # Forward pass
+          # Compute our own loss
+          loss = trainingoutput.loss
       
       # Compute gradients
       trainable_vars = self.trainable_variables
@@ -287,52 +284,37 @@ class Understandable_Embedder(tf.keras.Model):
       self.compiled_metrics.update_state(y, y_pred)
       return loss
   
-    def mask_tokens(self, inputs):
-        labels = inputs.clone()
-        
-       # We sample a few tokens in each sequence for MLM training (with probability `self.mlm_probability`)
-        probability_matrix = tf.fill(labels.shape, self.mlm_probability)
-      #  if special_tokens_mask is None:
-        special_tokens_mask = [
-            self.tokenizer.get_special_tokens_mask(val, already_has_special_tokens=True) for val in labels.tolist()
-        ]
-        special_tokens_mask = tf.constant(special_tokens_mask, dtype=tf.bool)
-#         else:
-#             special_tokens_mask = special_tokens_mask.bool()
-        
-        special_token_indices = tf.where(special_tokens_mask)
-        probability_matrix[special_token_indices] = 0.0
-        masked_indices = tfp.distributions.Bernoulli(probs = probability_matrix).sample(probability_matrix.shape)
-        labels[~masked_indices] = -100
-        
-        
-         # 80% of the time, we replace masked input tokens with tokenizer.mask_token ([MASK])
-        indices_replaced = torch.bernoulli(torch.full(labels.shape, 0.8)).bool() & masked_indices
-        inputs[indices_replaced] = self.tokenizer.convert_tokens_to_ids(self.tokenizer.mask_token)
+  
+    def mask(self, batch):
+        masked_data =  []
+        mask_token = "[MASK]"
+        for point in batch:
+            split_sentence = point.split(" ")
+            if np.random.random() < 0.9 :
+                masked_index = np.random.randint(len(split_sentence))
+                split_sentence[masked_index] = mask_token
+            spliced_sentence =  " ".join(split_sentence)   
+            masked_data.append(spliced_sentence)
+        inputs =  self.tokenizer(masked_data, return_tensors = "tf")
+        inputs["labels"] =  self.tokenizer(data, return_tensors = "tf")["input_ids"]
+    return inputs
 
-        # 10% of the time, we replace masked input tokens with random word
-        indices_random = torch.bernoulli(torch.full(labels.shape, 0.5)).bool() & masked_indices & ~indices_replaced
-        random_words = torch.randint(len(self.tokenizer), labels.shape, dtype=torch.long)
-        inputs[indices_random] = random_words[indices_random]
-        
-        # The rest of the time (10% of the time) we keep the masked input tokens unchanged
-        return inputs,labels
   
     def fit_pretrain(self, dataset,definition_pairs,epochs,steps_per_epoch,tokenizer, mlm_prob = 0.15 ):
         self.tokenizer = tokenizer
-        self.bert.nsp.trainable = False
         self.dense.trainable = False
        # self.bert.mlm.trainable = False
         for e in range(epochs):
             print("At epoch", e+1, "of", epochs)
+            
             step = 0
             avg_loss = 0.0
             avg_loss_compare = 0.0
-            for x,y in dataset:
+            for x in dataset:
                 
                 if step > steps_per_epoch :
                     break
-                loss = self.pretrain_train_step(self.mask_tokens(x))
+                loss = self.pretrain_train_step(self.mask(x))
                 avg_loss = avg_loss+float(loss)
                 
                 self.bert.mlm.trainable = False
