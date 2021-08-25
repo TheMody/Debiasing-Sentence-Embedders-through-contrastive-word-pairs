@@ -303,41 +303,38 @@ class Understandable_Embedder(tf.keras.Model):
     def fit_pretrain(self, dataset,definition_pairs,epochs,steps_per_epoch,tokenizer, mlm_prob = 0.15 ):
         self.tokenizer = tokenizer
         self.dense.trainable = False
-       # self.bert.mlm.trainable = False
         for e in range(epochs):
             print("At epoch", e+1, "of", epochs)
-            
             step = 0
             avg_loss = 0.0
             avg_loss_compare = 0.0
-            for x in dataset:
-                
+            for batch in dataset:
                 if step > steps_per_epoch :
                     break
-                loss = self.pretrain_train_step(self.mask(x))
+                loss = self.pretrain_train_step(self.mask(batch))
                 avg_loss = avg_loss+float(loss)
-                
-                self.bert.mlm.trainable = False
-                for current_attribute_id,attribute_set in enumerate(definition_pairs):
-                    start = ((e*steps_per_epoch +step)*self.batch_size) % len(attribute_set)
-                    stop = start + self.batch_size
-                    
-                    #one dictionary for each word
-                    feed_dict_1 = {}
-                    feed_dict_1["input_ids"] = attribute_set[0]["input_ids"][start:stop,:]
-                    feed_dict_1["token_type_ids"] = attribute_set[0]["token_type_ids"][start:stop,:]
-                    feed_dict_1["attention_mask"] = attribute_set[0]["attention_mask"][start:stop,:]
-                    
-                    #one dictionary for each word
-                    feed_dict_2 = {}
-                    feed_dict_2["input_ids"] = attribute_set[1]["input_ids"][start:stop,:]
-                    feed_dict_2["token_type_ids"] = attribute_set[1]["token_type_ids"][start:stop,:]
-                    feed_dict_2["attention_mask"] = attribute_set[1]["attention_mask"][start:stop,:]
-                    
-                   # print(feed_dict_1)    
-                    loss = self.compare_train_step(feed_dict_1,feed_dict_2,tf.constant(current_attribute_id))
-                    avg_loss_compare = avg_loss_compare+float(loss)  
-                self.bert.mlm.trainable = True        
+                if step % self.debiasing_freq:
+                    self.bert.mlm.trainable = False
+                    for current_attribute_id,attribute_set in enumerate(definition_pairs):
+                        start = ((e*steps_per_epoch +step)*self.batch_size) % len(attribute_set)
+                        stop = start + self.batch_size
+                        
+                        #one dictionary for each word
+                        feed_dict_1 = {}
+                        feed_dict_1["input_ids"] = attribute_set[0]["input_ids"][start:stop,:]
+                        feed_dict_1["token_type_ids"] = attribute_set[0]["token_type_ids"][start:stop,:]
+                        feed_dict_1["attention_mask"] = attribute_set[0]["attention_mask"][start:stop,:]
+                        
+                        #one dictionary for each word
+                        feed_dict_2 = {}
+                        feed_dict_2["input_ids"] = attribute_set[1]["input_ids"][start:stop,:]
+                        feed_dict_2["token_type_ids"] = attribute_set[1]["token_type_ids"][start:stop,:]
+                        feed_dict_2["attention_mask"] = attribute_set[1]["attention_mask"][start:stop,:]
+                        
+                       # print(feed_dict_1)    
+                        loss = self.compare_train_step(feed_dict_1,feed_dict_2,tf.constant(current_attribute_id))
+                        avg_loss_compare = avg_loss_compare+float(loss)  
+                    self.bert.mlm.trainable = True        
                         
                 step = step +1
                 if step % 20 == 0: 

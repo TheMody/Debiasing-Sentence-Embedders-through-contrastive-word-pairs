@@ -18,16 +18,6 @@ if __name__ == "__main__":
     import tensorflow_datasets as tfds
 
     epochs = 1
-    
-    #create pretrain ds
-#     pretrain_ds = load_pretrain_ds(tokenizer)
-#     pretrain_ds =  pretrain_ds.shuffle(100)#.batch(batch_size)
-#     for output in pretrain_ds:
-#         print(list(output.keys()))
-     #   print(output["document"])
-    
-    # create additional ds
-    
 
     
     def train_understandable(train_dataset, understanding_dataset,only_dense = False, save_path = "model"):
@@ -38,7 +28,7 @@ if __name__ == "__main__":
         model.compile(optimizer=optimizer, loss=loss,metrics=["sparse_categorical_accuracy"])
          
          
-        history = model.fit_classify_understandable(train_dataset,understanding_dataset, epochs=epochs, steps_per_epoch=int(3600/batch_size)) #3600 datapoints
+        history = model.fit_pretrain(train_dataset,understanding_dataset, epochs=epochs, steps_per_epoch=int(3600/batch_size)) #3600 datapoints for cola
         path = "results/" + save_path
         os.makedirs(path,exist_ok=True)
         with open(path + "/history.txt", "wb") as fp:   
@@ -72,7 +62,7 @@ if __name__ == "__main__":
     tokenized_definition_train_gender_large = get_understanding_set(definition_pairs,tokenizer)
     
     
-    pre_training_set = load_pretrain_ds
+    pre_training_set = load_pretrain_ds(tokenizer, batch_size = batch_size)
     pre_training_set = [["my dog is good"]]
     
     inputs = tokenizer("The capital of France is [MASK].", return_tensors="tf")
