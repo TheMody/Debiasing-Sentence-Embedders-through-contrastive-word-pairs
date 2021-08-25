@@ -82,15 +82,15 @@ class Understandable_Embedder(tf.keras.Model):
             y_pred_1 = self.call_headless(x1, training=True)  # Forward pass                    
             y_pred_2 = self.call_headless(x2, training=True)
             
-            contrastive_loss = (1.0/self.compare_loss(y_pred_1[:,i],y_pred_2[:,i]))* self.contrastive_scale
+            #contrastive_loss = (1.0/self.compare_loss(y_pred_1[:,i],y_pred_2[:,i]))* self.contrastive_scale
             
 #             if contrastive_loss < self.contrastive_scale*self.batch_size*2.0:
 #                 contrastive_loss = 0.0
             
-            y_pred_1 = self.delete_dim(i,y_pred_1)
-            y_pred_2 = self.delete_dim(i,y_pred_2)
+#             y_pred_1 = self.delete_dim(i,y_pred_1)
+#             y_pred_2 = self.delete_dim(i,y_pred_2)
 
-            loss = (self.compare_loss(y_pred_1,y_pred_2) + contrastive_loss*20.0)*loss_factor #scale loss by 1/number of set meaning dimensions
+            loss = self.compare_loss(y_pred_1,y_pred_2)*loss_factor #+ contrastive_loss*20.0)r #scale loss by 1/number of set meaning dimensions
        #   tf.multiply(loss[0,i], 0) 
         trainable_vars = self.trainable_variables
         gradients = tape.gradient(loss, trainable_vars)
@@ -157,7 +157,7 @@ class Understandable_Embedder(tf.keras.Model):
         self.bert.nsp.trainable = False
         self.bert.mlm.trainable = False
         self.dense.trainable = False
-        self.bert.bert.trainable = not self.train_only_dense
+        self.bert.bert.trainable = True
         history = {}
         history["loss_compare"] = []     
         for e in range(epochs):
