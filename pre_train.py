@@ -19,6 +19,10 @@ if __name__ == "__main__":
 
     epochs = 1
 
+    tokenizer = BertTokenizer.from_pretrained('bert-base-uncased', output_hidden_states=True)   
+    
+    pre_training_set = load_pretrain_ds( batch_size = batch_size)
+    
     
     def train_understandable(train_dataset, understanding_dataset,only_dense = False, save_path = "model"):
         optimizer = tf.keras.optimizers.Adam(learning_rate=3e-5)
@@ -28,7 +32,7 @@ if __name__ == "__main__":
         model.compile(optimizer=optimizer, loss=loss,metrics=["sparse_categorical_accuracy"])
          
          
-        history = model.fit_pretrain(train_dataset,understanding_dataset, epochs=epochs, steps_per_epoch=int(3600/batch_size)) #3600 datapoints for cola
+        history = model.fit_pretrain(train_dataset,understanding_dataset, epochs=epochs, steps_per_epoch=len(pre_training_set)/10, tokenizer = tokenizer) #3600 datapoints for cola
         path = "results/" + save_path
         os.makedirs(path,exist_ok=True)
         with open(path + "/history.txt", "wb") as fp:   
@@ -36,10 +40,7 @@ if __name__ == "__main__":
         model.save_weights(path +"/model")
         
         return history
-        
 
-    
-    tokenizer = BertTokenizer.from_pretrained('bert-base-uncased', output_hidden_states=True)    
     
 #     definition_pairs = [[[" good ", " positive "],[" bad ", " negative "]],
 #                         [[" women ", " girl "],[" men ", " boy "]],                       
@@ -60,14 +61,7 @@ if __name__ == "__main__":
     definition_pairs = [[[" women ", " girl ", " female ", " she ", " actress ", " heroine ", " queen "," sister ", " mother ", " lady ", " her " ],[" men ", " boy ", " male ", " he ", " actor ", " hero ", " king ", " brother ", " father ", " gentleman ", " him "]]]
        
     tokenized_definition_train_gender_large = get_understanding_set(definition_pairs,tokenizer)
-    
-    
-    pre_training_set = load_pretrain_ds(tokenizer, batch_size = batch_size)
-    pre_training_set = [["my dog is good"]]
-    
-    inputs = tokenizer("The capital of France is [MASK].", return_tensors="tf")
-    inputs["labels"] = tokenizer("The capital of France is Paris.", return_tensors="tf")["input_ids"]
 
-    train_understandable(tokenized_definition_train_gender_large,pre_training_set, save_path = ("pre_gender_"))
+    train_understandable(pre_training_set,tokenized_definition_train_gender_large, save_path = ("pre_gender_"))
 
 

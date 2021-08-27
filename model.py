@@ -1,9 +1,9 @@
-from transformers import TFBertModel,TFBertForPreTraining, BertTokenizer
+from transformers import TFBertModel,TFBertForMaskedLM, BertTokenizer
 from tensorflow import keras
 import tensorflow as tf
 from tensorflow.keras import layers
 import numpy as np
-
+import time
 
 class Understandable_Embedder(tf.keras.Model):
     
@@ -21,6 +21,8 @@ class Understandable_Embedder(tf.keras.Model):
       self.compare_loss = keras.losses.MeanAbsoluteError()
       self.contrastive_scale = tf.constant(contrastive_scale)
       self.debiasing_freq = 10
+      self.mask_token = "[MASK]"
+      self.masked_id = 103
       
     
     
@@ -34,7 +36,7 @@ class Understandable_Embedder(tf.keras.Model):
       return outputs
   
     def call_pre_training(self, inputs, training = True):
-        outputs = self.bert(inputs,training=training)
+        outputs = self.bert.call(inputs,training=training)
         return outputs
     
     def call_headless(self, inputs, training = False):
@@ -269,9 +271,9 @@ class Understandable_Embedder(tf.keras.Model):
    # @tf.function
     def pretrain_train_step(self,data):
       with tf.GradientTape() as tape:
-          trainingoutput = self.call_pre_training(tape, training=True)  # Forward pass
+          trainingoutput = self.call_pre_training(data, training=True)  # Forward pass
           # Compute our own loss
-          loss = trainingoutput.loss
+          loss = trainingoutput[0]
       
       # Compute gradients
       trainable_vars = self.trainable_variables
@@ -281,29 +283,54 @@ class Understandable_Embedder(tf.keras.Model):
       self.optimizer.apply_gradients(zip(gradients, trainable_vars))
 
       # Compute our own metrics
-      self.compiled_metrics.update_state(y, y_pred)
-      return loss
+    #  self.compiled_metrics.update_state(y, y_pred)
+      return tf.math.reduce_mean(loss)
   
   
     def mask(self, batch):
-        masked_data =  []
-        mask_token = "[MASK]"
-        for point in batch:
-            split_sentence = point.split(" ")
-            if np.random.random() < 0.9 :
-                masked_index = np.random.randint(len(split_sentence))
-                split_sentence[masked_index] = mask_token
-            spliced_sentence =  " ".join(split_sentence)   
-            masked_data.append(spliced_sentence)
-        inputs =  self.tokenizer(masked_data, return_tensors = "tf")
-        inputs["labels"] =  self.tokenizer(data, return_tensors = "tf")["input_ids"]
-    return inputs
 
+        
+        inputs =  self.tokenizer(batch, max_length=128, padding=True, truncation=True, return_tensors = "tf")
+        
+#         import time
+#         start = time.time()
+        new_input_ids = inputs["input_ids"].numpy()
+        inputs["labels"] = tf.identity(inputs["input_ids"])
+        
+        for x,a in enumerate(new_input_ids):
+           for y,_ in enumerate(a):
+               if not new_input_ids[x,y] == 0:
+                   if np.random.random() < 0.15 :
+                       new_input_ids[x,y] = self.masked_id 
+          
+        inputs["input_ids"] = tf.convert_to_tensor(new_input_ids, dtype = tf.int32)
+        
+#         end = time.time()
+#         print("this took:", end-start)  ## not very efficient but still only takes 0.005 sec per batch
+        return inputs
+    
+    def secondsToText(self,secs):
+        days = secs//86400
+        hours = (secs - days*86400)//3600
+        minutes = (secs - days*86400 - hours*3600)//60
+        seconds = secs - days*86400 - hours*3600 - minutes*60
+        result = ("{} days, ".format(days) if days else "") + \
+        ("{} hours, ".format(hours) if hours else "") + \
+        ("{} minutes, ".format(minutes) if minutes else "") + \
+        ("{} seconds, ".format(seconds) if seconds else "")
+        return result
   
     def fit_pretrain(self, dataset,definition_pairs,epochs,steps_per_epoch,tokenizer, mlm_prob = 0.15 ):
         self.tokenizer = tokenizer
         self.dense.trainable = False
+      #  print(self.bert.bert.layers)
+        self.bert.bert.pooler.trainable = False
+        
+        losses ={}
+        losses["compare"] =[]
+        losses["mlm"] =[]
         for e in range(epochs):
+            starttime = time.time()
             print("At epoch", e+1, "of", epochs)
             step = 0
             avg_loss = 0.0
@@ -312,8 +339,9 @@ class Understandable_Embedder(tf.keras.Model):
                 if step > steps_per_epoch :
                     break
                 loss = self.pretrain_train_step(self.mask(batch))
+                losses["mlm"].append(float(loss))
                 avg_loss = avg_loss+float(loss)
-                if step % self.debiasing_freq:
+                if step % self.debiasing_freq == 0:
                     self.bert.mlm.trainable = False
                     for current_attribute_id,attribute_set in enumerate(definition_pairs):
                         start = ((e*steps_per_epoch +step)*self.batch_size) % len(attribute_set)
@@ -332,14 +360,16 @@ class Understandable_Embedder(tf.keras.Model):
                         feed_dict_2["attention_mask"] = attribute_set[1]["attention_mask"][start:stop,:]
                         
                        # print(feed_dict_1)    
-                        loss = self.compare_train_step(feed_dict_1,feed_dict_2,tf.constant(current_attribute_id))
+                        loss = self.compare_train_step(feed_dict_1,feed_dict_2,tf.constant(current_attribute_id),tf.constant( 1.0/len(definition_pairs)))
+                        losses["compare"].append(float(loss))
                         avg_loss_compare = avg_loss_compare+float(loss)  
                     self.bert.mlm.trainable = True        
                         
                 step = step +1
+
                 if step % 20 == 0: 
-                    print("Training loss (for one batch) at step",step, "/", steps_per_epoch,":", avg_loss/step)
-                    print("Training loss_compare (for one batch) at step",step, "/", steps_per_epoch,":", avg_loss_compare/step)
-                
-        return {m.name: m.result() for m in self.metrics}
+                    print("Training loss at step",step, "/", steps_per_epoch,":", avg_loss/step ," loss_compare:", avg_loss_compare/step)
+                    elapsed = time.time() - starttime
+                    print("average time per step ",self.secondsToText(elapsed/step),"predicted time until completion of epoch:", self.secondsToText((elapsed/step)*(steps_per_epoch-step) ))
+        return losses
         
