@@ -44,7 +44,7 @@ def get_understanding_set(definition_pairs,tokenizer,max_examples = 20000):
 
 
 
-def load_pretrain_ds( batch_size = 8, max_length = 1024, min_length = 8):
+def load_pretrain_ds( batch_size = 8, max_length = 1024, min_length = 10):
     dataset = tfds.load('multi_news', split="train", shuffle_files=False)
     allsentences = []
     for newsarticle in dataset:
@@ -55,9 +55,10 @@ def load_pretrain_ds( batch_size = 8, max_length = 1024, min_length = 8):
     new_ds = []
     new_batch = []
     for sentence in allsentences:
-        new_batch.append(sentence)
-        if len(new_batch)>= batch_size:
-            new_ds.append(new_batch)
-            new_batch = []
+        if len(sentence)>min_length:
+            new_batch.append(sentence)
+            if len(new_batch)>= batch_size:
+                new_ds.append(new_batch)
+                new_batch = []
     return new_ds
 

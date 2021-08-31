@@ -410,13 +410,13 @@ if __name__ == "__main__":
 #     evaluate_model_set("results/race_con_",1,"results/race_con_mae.txt",delete_dim=False)
 #     evaluate_model_set("results/race_con_",1,"results/race_con_mae_del.txt",delete_dim=True)s
 #     evaluate_model_set("results/race_con_",5,"results/race_con_del.txt",delete_dim=True)
-    evaluate_model_set("results/gender_",5,"results/gender_.txt",delete_dim=False)
+   # evaluate_model_set("results/gender_",5,"results/gender_.txt",delete_dim=False)
   #  evaluate_model_set("results/SimpleLoss/sst2_gender_",5,"results/SimpleLoss/sst2_gender_.txt",delete_dim=False)
   #  evaluate_model_set("results/without/qnli_normal_",5,"results/without/qnli_normal_.txt",delete_dim=False)
    # evaluate_model_set("results/mrpc_genderlarge_con_",3,"results/mrpc_genderlarge_con_.txt",delete_dim=False)
 
         
         
-    #evaluate_model_bias("results/gender_con_0/model","results/race_higher_loss.txt")
+    evaluate_model_bias("results/pre_gender_/model","results/pre_gender.txt")
 #     evaluate_model_bias("race_modelmrpc/understandable/model","results/race_bert_finetuned_understandable_deleted_dim.txt", True)
     #plot_history("modelmrpc")
