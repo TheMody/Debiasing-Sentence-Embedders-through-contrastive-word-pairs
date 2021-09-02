@@ -1,1 +1,1 @@
-python pre_train.py
+python3 pre_train.py
