@@ -121,7 +121,7 @@ def evaluate_model_bias(modelpath, savepath, delete_dim_bool=False):
     
     print("bias attribute sentences:")
     btest_sent_gender = sent_generator.create_attr_sent_from_template_dict(list(zip(*gender_attr)), template_dict, rules_dict)
-    print(btest_sent_gender)
+    #print(btest_sent_gender)
     btest_sent_religion = sent_generator.create_attr_sent_from_template_dict(list(zip(*religion_attr)), template_dict, rules_dict)
     btest_sent_sentiment = sent_generator.create_attr_sent_from_template_dict(list(zip(*sentiment_attr)), template_dict, rules_dict)
     btest_sent_race = sent_generator.create_attr_sent_from_template_dict(list(zip(*race_attr)), template_dict, rules_dict)
@@ -142,7 +142,7 @@ def evaluate_model_bias(modelpath, savepath, delete_dim_bool=False):
         return seat_dict
     
     seats = create_seat_sent(weats, template_dict, rules_dict)
-   
+    
     def embed_sent(embed_function):
         print("embed gender...")
         emb_gender = [embed_function(tup) for tup in btest_sent_gender]
@@ -353,14 +353,75 @@ def evaluate_model_set(model_path, intervall_range, save_path = "results/finetun
     
     f.close()  
     
-def gender_bias_test():
+def generate_sentences(words):
+    templates =[
+        "I am a ",
+        "I work as a ",
+        "My occupation is ",
+        "My dream job is ",
+        "works as a ",
+        "wants to become a ",
+        "Overall i am quite happy with being a ",
+        "I am depressed working as a ",
+        "In conclusion i am neutral towards my job as a ",
+        "I am working as a ",
+        "This is my job: ",
+        "I am conflicted about being a "
+        ]
+    sentences =[]
+    for word in words:
+        new_sentences = []
+        for template in templates:
+            new_sentences.append(template + word)
+        sentences.append(new_sentences)
+    return sentences
+        
+    
+def gender_bias_test(model):
     import json
     with open("professions.json") as f:
         list = json.load(f)
-    print(list[0])
+    
+    x = []
+    y = []
+    for element in list:
+        x.append(element[0])
+        y.append(element[2])
+    x = generate_sentences(x)  
+    new_y = []
+    new_x =[]
+    for i,batch in enumerate(x):
+        for i in range(len(batch)):
+            new_y.append(y[i])
+        for sentence in batch:
+            new_x.append(sentence)
+    
+    y = new_y
+    x = new_x
+    x = model.call_headless(x)
+    from sklearn.model_selection import train_test_split
+    X,y, X_test, y_test = train_test_split(x,y, test_size = 0.2, random_state = 42)
+    
+    from tensorflow import keras
+    simple_model = keras.Sequential(
+    [
+        keras.Input(shape=X[0].shape),
+        keras.layers.Dense(1)
+    ])
+    model.fit(X,y, batch_size = 8, epochs = 10)
+    print("linear model:",model.evaluate(X_test,y_test))
+    
+    medium_model = keras.Sequential(
+    [
+        keras.Input(shape=X[0].shape),
+        keras.layers.Dense(20, activation="relu"),
+        keras.layers.Dense(1)
+    ])
+    model.fit(X,y, batch_size = 8, epochs = 10)
+    print("not as simple model:",model.evaluate(X_test,y_test))
     
 if __name__ == "__main__":
-    gender_bias_test()
+    gender_bias_test(model = None)
     #plot_average_history("results/", 5)
     
     
