@@ -397,6 +397,8 @@ def gender_bias_test(model):
             new_x.append(sentence)
     
     y = new_y
+    y = np.asarray(y)
+    y = y*0.5+0.5
     x = new_x
     x = model.call_headless(x)
     from sklearn.model_selection import train_test_split
@@ -406,18 +408,18 @@ def gender_bias_test(model):
     simple_model = keras.Sequential(
     [
         keras.Input(shape=X[0].shape),
-        keras.layers.Dense(1)
+        keras.layers.Dense(1, activation = "sigmoid")
     ])
-    model.fit(X,y, batch_size = 8, epochs = 10)
+    model.fit(X,y, batch_size = 8, epochs = 50, validation_data = (X_test,y_test), callbacks = keras.callbacks.EarlyStopping())
     print("linear model:",model.evaluate(X_test,y_test))
     
     medium_model = keras.Sequential(
     [
         keras.Input(shape=X[0].shape),
         keras.layers.Dense(20, activation="relu"),
-        keras.layers.Dense(1)
+        keras.layers.Dense(1, activation = "sigmoid")
     ])
-    model.fit(X,y, batch_size = 8, epochs = 10)
+    model.fit(X,y, batch_size = 8, epochs = 50, validation_data = (X_test,y_test), callbacks = keras.callbacks.EarlyStopping())
     print("not as simple model:",model.evaluate(X_test,y_test))
     
 if __name__ == "__main__":
