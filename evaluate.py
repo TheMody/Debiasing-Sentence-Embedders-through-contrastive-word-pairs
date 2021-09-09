@@ -121,9 +121,11 @@ def evaluate_model_bias(modelpath, savepath, delete_dim_bool=False):
     
     print("bias attribute sentences:")
     btest_sent_gender = sent_generator.create_attr_sent_from_template_dict(list(zip(*gender_attr)), template_dict, rules_dict)
+    print(btest_sent_gender)
     btest_sent_religion = sent_generator.create_attr_sent_from_template_dict(list(zip(*religion_attr)), template_dict, rules_dict)
     btest_sent_sentiment = sent_generator.create_attr_sent_from_template_dict(list(zip(*sentiment_attr)), template_dict, rules_dict)
     btest_sent_race = sent_generator.create_attr_sent_from_template_dict(list(zip(*race_attr)), template_dict, rules_dict)
+    
     
     # create sentences for SEATs
     def create_seat_sent(weat_dict, template_dict, rules_dict):
@@ -324,8 +326,8 @@ def evaluate_model_set(model_path, intervall_range, save_path = "results/finetun
         average_dict[test + "intervall"] = 1.96*np.sqrt(variance)/np.sqrt(result_dict[test].shape[0])
         average_dict[test] = np.mean(np.abs(result_dict[test]), axis = 0)
     #    print(test, average_dict[test], average_dict[test + "intervall"] )
-        f.write(test+"&"+str(round(average_dict[test][0], 2))+ " +/- " + str(round(average_dict[test + "intervall"][0], 2)) +"&"
-                +str(round(average_dict[test][1],2))+ " +/- " + str(round(average_dict[test + "intervall"][1], 2)) +"&"
+        f.write(test+" & "+str(round(average_dict[test][0], 2))+ " +/- " + str(round(average_dict[test + "intervall"][0], 2)) +" & "
+                +str(round(average_dict[test][1],2))+ " +/- " + str(round(average_dict[test + "intervall"][1], 2)) +" & "
                 +str(round(average_dict[test][2],2))+ " +/- " + str(round(average_dict[test + "intervall"][2], 2)) +"\\"+"\n")
         
 
@@ -333,7 +335,7 @@ def evaluate_model_set(model_path, intervall_range, save_path = "results/finetun
   
         
     race_test = ["weat3", "weat3b", "weat4", "weat5", "weat5b", "angry_black_woman", "angry_black_woman2"]
-    gender_test = ["weat6", "weat6b", "weat7", "weat7b", "weat8b", "weat8", "double_bind_competent", "double_bind_likable"]
+    gender_test = ["weat6", "weat6b", "weat7", "weat7b", "weat8b", "weat8"]#, "double_bind_competent", "double_bind_likable"]
     
     race_list =[]
     for test in race_test:
@@ -351,7 +353,14 @@ def evaluate_model_set(model_path, intervall_range, save_path = "results/finetun
     
     f.close()  
     
+def gender_bias_test():
+    import json
+    with open("professions.json") as f:
+        list = json.load(f)
+    print(list[0])
+    
 if __name__ == "__main__":
+    gender_bias_test()
     #plot_average_history("results/", 5)
     
     

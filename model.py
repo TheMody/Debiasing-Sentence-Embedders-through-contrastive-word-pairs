@@ -320,11 +320,11 @@ class Understandable_Embedder(tf.keras.Model):
         ("{} seconds, ".format(seconds) if seconds else "")
         return result
   
-    def fit_pretrain(self, dataset,definition_pairs,epochs,steps_per_epoch,tokenizer, mlm_prob = 0.15 ):
+    def fit_pretrain(self, dataset,definition_pairs,epochs,steps_per_epoch,tokenizer):
         self.tokenizer = tokenizer
         self.dense.trainable = False
       #  print(self.bert.bert.layers)
-        self.bert.bert.pooler.trainable = False
+       # self.bert.bert.pooler.trainable = False
         
         losses ={}
         losses["compare"] =[]
