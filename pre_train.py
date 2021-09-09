@@ -6,7 +6,7 @@ from transformers import DataCollatorForLanguageModeling
 
 
 if __name__ == "__main__":
-    batch_size = 4
+    batch_size = 8
     
  
     from transformers import BertTokenizer
@@ -32,7 +32,7 @@ if __name__ == "__main__":
         model.compile(optimizer=optimizer, loss=loss,metrics=["sparse_categorical_accuracy"])
          
          
-        history = model.fit_pretrain(train_dataset,understanding_dataset, epochs=epochs, steps_per_epoch=int(len(pre_training_set)/10), tokenizer = tokenizer) #3600 datapoints for cola
+        history = model.fit_pretrain(train_dataset,understanding_dataset, epochs=epochs, steps_per_epoch=int(len(pre_training_set)), tokenizer = tokenizer) #3600 datapoints for cola
         path = "results/" + save_path
         os.makedirs(path,exist_ok=True)
         with open(path + "/history.txt", "wb") as fp:   
