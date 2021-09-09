@@ -5,14 +5,14 @@ import numpy as np
 
 def find_all_occurence_and_replace(definition_pairs, max_examples = 5000, max_length = 512, min_length = 8):
     
-    dataset = tfds.load('multi_news', split="train", shuffle_files=False)
+    dataset = tfds.load('cnn_dailymail', split="train", shuffle_files=False)
     definition_sentences = []
     rng = np.random.default_rng()
     for definition_words in definition_pairs:
         bias_sentence_pair1 = []
         bias_sentence_pair2 = []
         for newsarticle in dataset:
-            newsarticle = str(newsarticle["document"])
+            newsarticle = str(newsarticle["article"])
             for sentence in newsarticle.split("."):
               if len(sentence)>min_length & len(sentence)<max_length:
                   for i,equalword in enumerate(definition_words):
