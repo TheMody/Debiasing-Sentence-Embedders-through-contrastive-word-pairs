@@ -423,7 +423,7 @@ def gender_bias_test(model):
     print("not as simple model:",model.evaluate(X_test,y_test))
     
 if __name__ == "__main__":
-    gender_bias_test(model = None)
+
     #plot_average_history("results/", 5)
     
     
@@ -438,13 +438,23 @@ if __name__ == "__main__":
     from transformers import BertTokenizer, glue_convert_examples_to_features
     tokenizer = BertTokenizer.from_pretrained('bert-base-uncased', output_hidden_states=True)
     batch_size = 4
+    
+    model = Understandable_Embedder()
+    tokenized_inputs = tokenizer(["hallo du da", "ich bin hier"], max_length=128, padding=True, truncation=True, return_tensors='tf')
+    print(model.call_pre_training(tokenized_inputs))
+    
+    model.load_weights("results/pre_gender_test")
+    gender_bias_test(model = model)
+    
 #     task = "cola"  
 #     data = tfds.load('glue/'+task)
 #     dataset_length = data['test'].cardinality().numpy()
 #     dataset = glue_convert_examples_to_features(data['test'], tokenizer, max_length=128,  task=task)
-#          
+#           
 #     gender_acc = evaluate_average_model_accuracy("results/without/cola_normal_", dataset, dataset_length, 5)
 #     print("gender_acc cola:", gender_acc)
+    
+    
 #     task = "sst2"  
 #     data = tfds.load('glue/'+task)
 #     task = "sst-2" 
