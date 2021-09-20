@@ -47,9 +47,23 @@ class Understandable_Embedder(tf.keras.Model):
       return x
   
     def predict_simple(self,inputs):
-        tokenized_inputs = self.tokenizer(inputs, max_length=128, padding=True, truncation=True, return_tensors='tf')
-        x = self.call_headless(tokenized_inputs,training=False)
-        return x
+        if len(inputs) > self.batch_size:
+            start = True
+            x = np.asarray([])
+            for i in range(int(len(inputs)/self.batch_size)):
+                new_inputs = inputs[i*self.batch_size:min((i+1)*self.batch_size, len(inputs))]
+                tokenized_inputs = self.tokenizer(new_inputs, max_length=128, padding=True, truncation=True, return_tensors='tf')
+                if start:
+                    start = False
+                    x = self.call_headless(tokenized_inputs,training=False)
+                else:
+                    x = np.concatenate((x,self.call_headless(tokenized_inputs,training=False)))
+                    
+            return x
+        else:
+            tokenized_inputs = self.tokenizer(inputs, max_length=128, padding=True, truncation=True, return_tensors='tf')
+            x = self.call_headless(tokenized_inputs,training=False)
+            return x.numpy()
         
     
     @tf.function

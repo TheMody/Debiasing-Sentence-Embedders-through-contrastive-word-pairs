@@ -64,8 +64,10 @@ def generate_error_bound_plot(history_list, color=(0.1,0.1,0.6)):
     plt.plot(confidence_intervall_upper,c = boundcolor)
     plt.plot(confidence_intervall_lower,c = boundcolor)
     
-
-    
+def load_model(modelpath):
+    model = Understandable_Embedder()
+    model.load_weights(modelpath)
+    return model
 def evaluate_model_accuracy(modelpath, eval_ds, dataset_length):    
     model = Understandable_Embedder()
     model.load_weights(modelpath)
@@ -387,6 +389,7 @@ def gender_bias_test(model):
     for element in list:
         x.append(element[0])
         y.append(element[2])
+
     x = generate_sentences(x)  
     new_y = []
     new_x =[]
@@ -400,27 +403,34 @@ def gender_bias_test(model):
     y = np.asarray(y)
     y = y*0.5+0.5
     x = new_x
-    x = model.call_headless(x)
-    from sklearn.model_selection import train_test_split
-    X,y, X_test, y_test = train_test_split(x,y, test_size = 0.2, random_state = 42)
+
     
+    x = model.predict_simple(x)
+
+    from sklearn.model_selection import train_test_split
+    X, X_test,y, y_test = train_test_split(x,y, test_size = 0.2, random_state = 42)
+
     from tensorflow import keras
     simple_model = keras.Sequential(
     [
         keras.Input(shape=X[0].shape),
         keras.layers.Dense(1, activation = "sigmoid")
     ])
-    model.fit(X,y, batch_size = 8, epochs = 50, validation_data = (X_test,y_test), callbacks = keras.callbacks.EarlyStopping())
-    print("linear model:",model.evaluate(X_test,y_test))
+    simple_model.compile(optimizer =tf.keras.optimizers.SGD() ,loss = tf.keras.losses.MeanSquaredError())
+    simple_model.fit(X,y, batch_size = 8, epochs = 50, validation_data = (X_test,y_test))#, callbacks = keras.callbacks.EarlyStopping())
+    print("linear model:",simple_model.evaluate(X_test,y_test))
     
     medium_model = keras.Sequential(
     [
         keras.Input(shape=X[0].shape),
         keras.layers.Dense(20, activation="relu"),
+        keras.layers.Dense(20, activation="relu"),
+        keras.layers.Dense(20, activation="relu"),
         keras.layers.Dense(1, activation = "sigmoid")
     ])
-    model.fit(X,y, batch_size = 8, epochs = 50, validation_data = (X_test,y_test), callbacks = keras.callbacks.EarlyStopping())
-    print("not as simple model:",model.evaluate(X_test,y_test))
+    medium_model.compile(optimizer =tf.keras.optimizers.SGD() ,loss = tf.keras.losses.MeanSquaredError())
+    medium_model.fit(X,y, batch_size = 8, epochs = 50, validation_data = (X_test,y_test))#, callbacks = keras.callbacks.EarlyStopping())
+    print("not as simple model:",medium_model.evaluate(X_test,y_test))
     
 if __name__ == "__main__":
 
@@ -439,18 +449,23 @@ if __name__ == "__main__":
     tokenizer = BertTokenizer.from_pretrained('bert-base-uncased', output_hidden_states=True)
     batch_size = 4
     
-    model = Understandable_Embedder()
-    tokenized_inputs = tokenizer(["hallo du da", "ich bin hier"], max_length=128, padding=True, truncation=True, return_tensors='tf')
-    print(model.call_pre_training(tokenized_inputs))
-    
-    model.load_weights("results/pre_gender_test")
+#     model = Understandable_Embedder()
+#     tokenized_inputs = tokenizer(["hallo du da", "ich bin hier"], max_length=128, padding=True, truncation=True, return_tensors='tf')
+#     print(model.call_pre_training(tokenized_inputs))
+#      
+#     model.load_weights("results/without/cola_normal_1")
+    model = load_model("results/pre_gender_/model")
+     
     gender_bias_test(model = model)
+   # print("not pre trained:")
+   # gender_bias_test(model = Understandable_Embedder())
+    
     
 #     task = "cola"  
 #     data = tfds.load('glue/'+task)
 #     dataset_length = data['test'].cardinality().numpy()
 #     dataset = glue_convert_examples_to_features(data['test'], tokenizer, max_length=128,  task=task)
-#           
+#             
 #     gender_acc = evaluate_average_model_accuracy("results/without/cola_normal_", dataset, dataset_length, 5)
 #     print("gender_acc cola:", gender_acc)
     
@@ -499,6 +514,6 @@ if __name__ == "__main__":
 
         
         
-    evaluate_model_bias("results/pre_gender_/model","results/pre_gender.txt")
+  #  evaluate_model_bias("results/pre_gender_/model","results/pre_gender.txt")
 #     evaluate_model_bias("race_modelmrpc/understandable/model","results/race_bert_finetuned_understandable_deleted_dim.txt", True)
     #plot_history("modelmrpc")
