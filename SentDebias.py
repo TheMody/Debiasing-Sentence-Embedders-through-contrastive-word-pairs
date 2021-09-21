@@ -100,7 +100,7 @@ if __name__ == "__main__":
     print(bias_words)
     Sent_Deb = Sent_Debias()
     
-    number_dim = 5
+    number_dim = 3
     global load 
     load = False
     max_words = 5000

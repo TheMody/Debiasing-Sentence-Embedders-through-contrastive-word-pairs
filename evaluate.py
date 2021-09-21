@@ -11,6 +11,7 @@ import math
 from data import get_understanding_set
 from transformers import BertTokenizer, glue_convert_examples_to_features
 
+
 def plot_history(path):
     with open(path + "/understandable/understandable_history.txt", "rb") as fp:   # Unpickling
         understandable_history = pickle.load(fp)
@@ -379,7 +380,7 @@ def generate_sentences(words):
     return sentences
         
     
-def gender_bias_test(model):
+def gender_bias_test(model,pca_deb=False):
     import json
     with open("professions.json") as f:
         list = json.load(f)
@@ -406,7 +407,13 @@ def gender_bias_test(model):
 
     
     x = model.predict_simple(x)
-
+    
+    if pca_deb:
+        from SentDebias import Sent_Debias
+        Sent_Deb = Sent_Debias()
+        Sent_Deb.load()
+        x = Sent_Deb.predict(x)
+    
     from sklearn.model_selection import train_test_split
     X, X_test,y, y_test = train_test_split(x,y, test_size = 0.2, random_state = 42)
 
@@ -449,14 +456,22 @@ if __name__ == "__main__":
     tokenizer = BertTokenizer.from_pretrained('bert-base-uncased', output_hidden_states=True)
     batch_size = 4
     
+    
+    
 #     model = Understandable_Embedder()
 #     tokenized_inputs = tokenizer(["hallo du da", "ich bin hier"], max_length=128, padding=True, truncation=True, return_tensors='tf')
 #     print(model.call_pre_training(tokenized_inputs))
 #      
-#     model.load_weights("results/without/cola_normal_1")
-    model = load_model("results/pre_gender_/model")
-     
-    gender_bias_test(model = model)
+    model = load_model("results/without/cola_normal_0/model")
+    gender_bias_test(model = model, pca_deb= True)
+    model = load_model("results/without/cola_normal_2/model")
+    gender_bias_test(model = model, pca_deb= True)
+#     model = load_model("results/without/cola_normal_1/model")
+#     gender_bias_test(model = model)
+#     model = load_model("results/Genderlarge/sst2_gender_large_0/model")
+#     gender_bias_test(model = model)
+#     model = load_model("results/Genderlarge/sst2_gender_large_1/model")
+#     gender_bias_test(model = model)
    # print("not pre trained:")
    # gender_bias_test(model = Understandable_Embedder())
     
