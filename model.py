@@ -7,7 +7,7 @@ import time
 
 class Understandable_Embedder(tf.keras.Model):
     
-    def __init__(self, batch_size = 8, target_units=768, train_only_dense=False, contrastive_scale = 0.01):
+    def __init__(self, batch_size = 8, target_units=768, train_only_dense=False, contrastive_scale = 0.01, debias_freq = 10):
       super(Understandable_Embedder, self).__init__()
       self.tokenizer = BertTokenizer.from_pretrained('bert-base-uncased', output_hidden_states=True)
       self.batch_size = batch_size
@@ -20,7 +20,7 @@ class Understandable_Embedder(tf.keras.Model):
     #  self.dense_headless = layers.Dense(units = target_units, activation = "Relu")
       self.compare_loss = keras.losses.MeanAbsoluteError()
       self.contrastive_scale = tf.constant(contrastive_scale)
-      self.debiasing_freq = 10
+      self.debiasing_freq = debias_freq
       self.mask_token = "[MASK]"
       self.masked_id = 103
       
@@ -50,7 +50,8 @@ class Understandable_Embedder(tf.keras.Model):
         if len(inputs) > self.batch_size:
             start = True
             x = np.asarray([])
-            for i in range(int(len(inputs)/self.batch_size)):
+            import math
+            for i in range(math.ceil(len(inputs)/self.batch_size)):
                 new_inputs = inputs[i*self.batch_size:min((i+1)*self.batch_size, len(inputs))]
                 tokenized_inputs = self.tokenizer(new_inputs, max_length=128, padding=True, truncation=True, return_tensors='tf')
                 if start:
@@ -118,7 +119,7 @@ class Understandable_Embedder(tf.keras.Model):
   
     
         
-    def fit_classify_understandable(self, dataset,definition_pairs,epochs,steps_per_epoch , report_intervall = 20, loss_factor = 10.0):
+    def fit_classify_understandable(self, dataset,definition_pairs,epochs,steps_per_epoch , report_intervall = 20, loss_factor = 1.0):
         self.bert.mlm.trainable = False
         self.bert.bert.trainable = not self.train_only_dense
         history = {}
@@ -136,27 +137,28 @@ class Understandable_Embedder(tf.keras.Model):
                 loss = self.normal_train_step(x,y)
                 loss_report = loss_report + +float(loss)
                 
-                self.dense.trainable = False
-                for current_attribute_id,attribute_set in enumerate(definition_pairs):
-                    start = ((e*steps_per_epoch +step)*self.batch_size) % len(attribute_set)
-                    stop = start + self.batch_size
-                    
-                    #one dictionary for each word
-                    feed_dict_1 = {}
-                    feed_dict_1["input_ids"] = attribute_set[0]["input_ids"][start:stop,:]
-                    feed_dict_1["token_type_ids"] = attribute_set[0]["token_type_ids"][start:stop,:]
-                    feed_dict_1["attention_mask"] = attribute_set[0]["attention_mask"][start:stop,:]
-                    
-                    #one dictionary for each word
-                    feed_dict_2 = {}
-                    feed_dict_2["input_ids"] = attribute_set[1]["input_ids"][start:stop,:]
-                    feed_dict_2["token_type_ids"] = attribute_set[1]["token_type_ids"][start:stop,:]
-                    feed_dict_2["attention_mask"] = attribute_set[1]["attention_mask"][start:stop,:]
-                    
-                   # print(feed_dict_1)    
-                    loss_compare = self.compare_train_step(feed_dict_1,feed_dict_2,tf.constant(current_attribute_id),tf.constant(loss_factor * 1.0/len(definition_pairs)))
-                    loss_report_compare = loss_report_compare + float(loss_compare) 
-                self.dense.trainable = True        
+                if step % self.debiasing_freq == 0:
+                    self.dense.trainable = False
+                    for current_attribute_id,attribute_set in enumerate(definition_pairs):
+                        start = ((e*steps_per_epoch +step)*self.batch_size) % len(attribute_set)
+                        stop = start + self.batch_size
+                        
+                        #one dictionary for each word
+                        feed_dict_1 = {}
+                        feed_dict_1["input_ids"] = attribute_set[0]["input_ids"][start:stop,:]
+                        feed_dict_1["token_type_ids"] = attribute_set[0]["token_type_ids"][start:stop,:]
+                        feed_dict_1["attention_mask"] = attribute_set[0]["attention_mask"][start:stop,:]
+                        
+                        #one dictionary for each word
+                        feed_dict_2 = {}
+                        feed_dict_2["input_ids"] = attribute_set[1]["input_ids"][start:stop,:]
+                        feed_dict_2["token_type_ids"] = attribute_set[1]["token_type_ids"][start:stop,:]
+                        feed_dict_2["attention_mask"] = attribute_set[1]["attention_mask"][start:stop,:]
+                        
+                       # print(feed_dict_1)    
+                        loss_compare = self.compare_train_step(feed_dict_1,feed_dict_2,tf.constant(current_attribute_id),tf.constant(loss_factor * 1.0/len(definition_pairs)))
+                        loss_report_compare = loss_report_compare + float(loss_compare) 
+                    self.dense.trainable = True        
                         
                 step = step +1
                 if step % report_intervall == 0: 
@@ -338,7 +340,7 @@ class Understandable_Embedder(tf.keras.Model):
         self.tokenizer = tokenizer
         self.dense.trainable = False
       #  print(self.bert.bert.layers)
-       # self.bert.bert.pooler.trainable = False
+        self.bert.bert.pooler.trainable = False
         
         losses ={}
         losses["compare"] =[]

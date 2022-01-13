@@ -10,6 +10,7 @@ from numpy import linalg as LA
 import math
 from data import get_understanding_set
 from transformers import BertTokenizer, glue_convert_examples_to_features
+from nltk.corpus.reader import lin
 
 
 def plot_history(path):
@@ -27,30 +28,31 @@ def plot_history(path):
     
     
 def plot_average_history(path, intervall):
-    history_list_gender=[]
-    for i in range(intervall):
-        with open(path +"gender_con_" + str(i) + "/history.txt", "rb") as fp:   # Unpickling
-            understandable_history = pickle.load(fp)
-            history_list_gender.append(understandable_history)
-    generate_error_bound_plot(history_list_gender)
+
+#     history_list_gender=[]
+#     for i in range(intervall):
+#         with open(path +"cola_gender_large_" + str(i) + "/history.txt", "rb") as fp:   # Unpickling
+#             understandable_history = pickle.load(fp)
+#             history_list_gender.append(understandable_history)
+#     generate_error_bound_plot(history_list_gender)
     
     history_list_race =[]
     for i in range(intervall):
-        with open(path +"race_con_" + str(i) + "/history.txt", "rb") as fp:   # Unpickling
+        with open(path +"Genderlarge/sst2_gender_large_" + str(i) + "/history.txt", "rb") as fp:   # Unpickling
             understandable_history = pickle.load(fp)
             history_list_race.append(understandable_history)
-    generate_error_bound_plot(history_list_race, color=(0.1,0.6,0.1))
-    
+    generate_error_bound_plot(history_list_race, color=(0.1,0.6,0.1), label = "debiased")
+#     
     history_list_normal=[]
     for i in range(intervall):
-        with open(path +"normal_" + str(i) + "/history.txt", "rb") as fp:   # Unpickling
+        with open(path +"without/sst2_normal_" + str(i) + "/history.txt", "rb") as fp:   # Unpickling
             understandable_history = pickle.load(fp)
             history_list_normal.append(understandable_history)        
-    generate_error_bound_plot(history_list_normal, color=(0.6,0.1,0.1))
+    generate_error_bound_plot(history_list_normal, color=(0.6,0.1,0.1), label = "original")
     
-    plt.savefig("average_history.png")
+    plt.savefig("average_history_sst2_both.png")
     
-def generate_error_bound_plot(history_list, color=(0.1,0.1,0.6)):
+def generate_error_bound_plot(history_list, color=(0.1,0.1,0.6), label = ""):
     history_matrix=np.zeros((len(history_list),len(history_list[0]["loss"])))
     for i,history in enumerate(history_list):
         history_matrix[i,:]=history["loss"]
@@ -61,7 +63,10 @@ def generate_error_bound_plot(history_list, color=(0.1,0.1,0.6)):
     confidence_intervall_lower =   mean_history - confidence_intervall
     
     boundcolor = (color[0]*1.5,color[1]*1.5,color[2]*1.5)
-    plt.plot(mean_history,c = color)
+    line, = plt.plot(mean_history,c = color)
+    if not label == "":
+        line.set_label(label)
+        plt.legend()
     plt.plot(confidence_intervall_upper,c = boundcolor)
     plt.plot(confidence_intervall_lower,c = boundcolor)
     
@@ -83,7 +88,7 @@ def evaluate_average_model_accuracy(path,eval_ds, dataset_length, intervall):
     average = average / intervall
     return average
     
-def evaluate_model_bias(modelpath, savepath, delete_dim_bool=False):
+def evaluate_model_bias(modelpath, savepath, delete_dim_bool=False, pca_deb= False):
 
     
     # load the tf news dataset
@@ -216,6 +221,7 @@ def evaluate_model_bias(modelpath, savepath, delete_dim_bool=False):
             test_list.append(esize)
             test_list.append(esize2)
             test_list.append(mac_score)
+            test_list.append(pval)
         
             
             result_dict[test] = test_list
@@ -248,12 +254,24 @@ def evaluate_model_bias(modelpath, savepath, delete_dim_bool=False):
     weat = WEAT(weat_metrics, own_metrics)
 
     model = Understandable_Embedder()
-    model.load_weights(modelpath)
+    if not modelpath == "original":
+        model.load_weights(modelpath)
     #model.call_headless(inputs)
     
   #  print(model.predict_simple(["hallo du da", "ich bin hier"]))
+    def emb_func(input):
+      x =   model.predict_simple(input)
+      return x
     
-    emb = embed_sent(model.predict_simple)
+    if pca_deb:
+        from SentDebias import Sent_Debias
+        Sent_Deb = Sent_Debias()
+        Sent_Deb.load()
+        def emb_func(input):
+            x =   model.predict_simple(input)
+            x = Sent_Deb.predict(x)
+            return x
+    emb = embed_sent(emb_func)
   #  print(emb)
     
    # print(delete_dim)
@@ -309,13 +327,21 @@ def word_correlation(word_pair, modelpath, dim = 0):
     
 def evaluate_model_set(model_path, intervall_range, save_path = "results/finetuned.txt", delete_dim = False):
     
-    result_dict = {}
-    for i in range(intervall_range):
-        dict = evaluate_model_bias(model_path+str(i) +"/model", "results/finetuned.txt", delete_dim_bool= delete_dim)
+    if intervall_range == 0:
+        result_dict = {}
+        dict = evaluate_model_bias(model_path +"/model", "results/finetuned.txt", delete_dim_bool= delete_dim)
         for test in dict:
             if not test in result_dict:
                 result_dict[test] =[]
             result_dict[test].append(dict[test])
+    else:
+        result_dict = {}
+        for i in range(intervall_range):
+            dict = evaluate_model_bias(model_path+str(i) +"/model", "results/finetuned.txt", delete_dim_bool= delete_dim)
+            for test in dict:
+                if not test in result_dict:
+                    result_dict[test] =[]
+                result_dict[test].append(dict[test])
             
     log_file = save_path
     f = open(log_file,"w")
@@ -331,7 +357,8 @@ def evaluate_model_set(model_path, intervall_range, save_path = "results/finetun
     #    print(test, average_dict[test], average_dict[test + "intervall"] )
         f.write(test+" & "+str(round(average_dict[test][0], 2))+ " +/- " + str(round(average_dict[test + "intervall"][0], 2)) +" & "
                 +str(round(average_dict[test][1],2))+ " +/- " + str(round(average_dict[test + "intervall"][1], 2)) +" & "
-                +str(round(average_dict[test][2],2))+ " +/- " + str(round(average_dict[test + "intervall"][2], 2)) +"\\"+"\n")
+                +str(round(average_dict[test][2],2))+ " +/- " + str(round(average_dict[test + "intervall"][2], 2)) +" & "
+                +str(round(average_dict[test][3],2))+ " +/- " + str(round(average_dict[test + "intervall"][3], 2)) +"\\"+"\n")
         
 
     
@@ -378,7 +405,31 @@ def generate_sentences(words):
             new_sentences.append(template + word)
         sentences.append(new_sentences)
     return sentences
-        
+
+def plot_tsne(model):
+    import json
+    with open("professions.json") as f:
+        list = json.load(f)
+    
+    x = []
+    y = []
+    for element in list:
+        x.append(element[0])
+        y.append(element[2])    
+    y = np.asarray(y)
+    y = y*0.5+0.5
+    X = generate_sentences(x)  
+    new_X = []
+    for batch in X:
+        new_X.append(model.predict_simple(batch))
+    X = np.asarray(new_X)
+    X = np.mean(X, axis = 1)
+
+    from sklearn.manifold import TSNE
+    X_embedded = TSNE(n_components=2).fit_transform(X.astype(np.float64))
+    plt.scatter(X_embedded[:,0], X_embedded[:,1], c = y, cmap = plt.get_cmap("winter"))
+    plt.show()
+    return
     
 def gender_bias_test(model,pca_deb=False):
     import json
@@ -390,11 +441,14 @@ def gender_bias_test(model,pca_deb=False):
     for element in list:
         x.append(element[0])
         y.append(element[2])
+    
 
-    x = generate_sentences(x)  
+
+    X = generate_sentences(x)  
+
     new_y = []
     new_x =[]
-    for i,batch in enumerate(x):
+    for i,batch in enumerate(X):
         for i in range(len(batch)):
             new_y.append(y[i])
         for sentence in batch:
@@ -403,19 +457,37 @@ def gender_bias_test(model,pca_deb=False):
     y = new_y
     y = np.asarray(y)
     y = y*0.5+0.5
-    x = new_x
-
+    X = new_x
     
-    x = model.predict_simple(x)
+    print("base classifier: mse loss: " , np.var(y))
+    
+#     X_test = generate_sentences(X_test)  
+#     new_y = []
+#     new_x = []
+#     for i,batch in enumerate(X_test):
+#         for i in range(len(batch)):
+#             new_y.append(y_test[i])
+#         for sentence in batch:
+#             new_x.append(sentence)
+#     
+#     y_test = new_y
+#     y_test = np.asarray(y_test)
+#     y_test = y_test*0.5+0.5
+#     X_test = new_x
+    
+    X = model.predict_simple(X)
+ #   X_test = model.predict_simple(X_test)
+  #  print(len(y))
     
     if pca_deb:
         from SentDebias import Sent_Debias
         Sent_Deb = Sent_Debias()
         Sent_Deb.load()
-        x = Sent_Deb.predict(x)
+        X = Sent_Deb.predict(X)
+     #   X_test = Sent_Deb.predict(X_test)
     
-    from sklearn.model_selection import train_test_split
-    X, X_test,y, y_test = train_test_split(x,y, test_size = 0.2, random_state = 42)
+    from sklearn.model_selection import train_test_split        
+    X, X_test,y, y_test = train_test_split(X,y, test_size = 0.2, random_state = 42)
 
     from tensorflow import keras
     simple_model = keras.Sequential(
@@ -424,8 +496,11 @@ def gender_bias_test(model,pca_deb=False):
         keras.layers.Dense(1, activation = "sigmoid")
     ])
     simple_model.compile(optimizer =tf.keras.optimizers.SGD() ,loss = tf.keras.losses.MeanSquaredError())
-    simple_model.fit(X,y, batch_size = 8, epochs = 50, validation_data = (X_test,y_test))#, callbacks = keras.callbacks.EarlyStopping())
-    print("linear model:",simple_model.evaluate(X_test,y_test))
+    simple_model.fit(X,y, batch_size = 8, epochs = 50, validation_data = (X_test,y_test), verbose = 0)#, callbacks = keras.callbacks.EarlyStopping())
+    simple_result = simple_model.evaluate(X_test,y_test)
+    print("linear model:",simple_result)
+    
+    
     
     medium_model = keras.Sequential(
     [
@@ -436,13 +511,151 @@ def gender_bias_test(model,pca_deb=False):
         keras.layers.Dense(1, activation = "sigmoid")
     ])
     medium_model.compile(optimizer =tf.keras.optimizers.SGD() ,loss = tf.keras.losses.MeanSquaredError())
+    medium_model.fit(X,y, batch_size = 8, epochs = 50, validation_data = (X_test,y_test), verbose = 0)#, callbacks = keras.callbacks.EarlyStopping())
+    medium_result = medium_model.evaluate(X_test,y_test)
+    print("not as simple model:",medium_result)
+    
+    return simple_result, medium_result
+    
+    
+def gender_bias_test_classification(model,pca_deb=False):
+    import json
+    with open("professions.json") as f:
+        list = json.load(f)
+    
+    x = []
+    y = []
+    for element in list:
+        x.append(element[0])
+        y.append(element[2])
+    
+
+
+    X = generate_sentences(x)  
+
+    new_y = []
+    new_x =[]
+    for i,batch in enumerate(X):
+        for i in range(len(batch)):
+            new_y.append(y[i])
+        for sentence in batch:
+            new_x.append(sentence)
+    
+    y = new_y
+    y = np.asarray(y)
+    y = y*0.5+0.5
+    y = np.asarray([np.round(label) for label in y])
+    
+    X = new_x
+    
+    print("base classifier: mse loss: " , np.var(y))
+    
+#     X_test = generate_sentences(X_test)  
+#     new_y = []
+#     new_x = []
+#     for i,batch in enumerate(X_test):
+#         for i in range(len(batch)):
+#             new_y.append(y_test[i])
+#         for sentence in batch:
+#             new_x.append(sentence)
+#     
+#     y_test = new_y
+#     y_test = np.asarray(y_test)
+#     y_test = y_test*0.5+0.5
+#     X_test = new_x
+    
+    X = model.predict_simple(X)
+ #   X_test = model.predict_simple(X_test)
+  #  print(len(y))
+    
+    if pca_deb:
+        from SentDebias import Sent_Debias
+        Sent_Deb = Sent_Debias()
+        bias_words = ["girl", "boy"]
+        Sent_Deb.fit(model,bias_words ,k= 3, max_words = 1000)
+        X = Sent_Deb.predict(X)
+     #   X_test = Sent_Deb.predict(X_test)
+    
+    from sklearn.model_selection import train_test_split        
+    X, X_test,y, y_test = train_test_split(X,y, test_size = 0.2, random_state = 42)
+    
+    print(X_test.shape)
+    print(y_test.shape)
+
+    from tensorflow import keras
+    simple_model = keras.Sequential(
+    [
+        keras.Input(shape=X[0].shape),
+        keras.layers.Dense(1, activation = "sigmoid")
+    ])
+    simple_model.compile(optimizer =tf.keras.optimizers.SGD() ,loss = tf.keras.losses.BinaryCrossentropy())
+    simple_model.fit(X,y, batch_size = 8, epochs = 50, validation_data = (X_test,y_test))#, callbacks = keras.callbacks.EarlyStopping())
+    print("linear model:",simple_model.evaluate(X_test,y_test))
+    
+    
+    # --- Deep View Parameters ----#
+    from deepview import DeepView
+    pred_wrapper = DeepView.create_simple_wrapper(simple_model.predict)
+    
+    classes = np.arange(2)
+    batch_size = 32
+    max_samples = 500
+    data_shape = (768,)
+    resolution = 100
+    N = 10
+    lam = 0.64
+    cmap = 'tab10'
+    # to make shure deepview.show is blocking,
+    # disable interactive mode
+    interactive = False
+    title = 'linear model - occupations'
+     
+    deepview = DeepView(pred_wrapper, classes, max_samples, batch_size, data_shape, 
+        N, lam, resolution, cmap, interactive, title)
+     
+    deepview.add_samples(X_test[:200], y_test[:200])
+    deepview.show()
+    
+    
+    
+    medium_model = keras.Sequential(
+    [
+        keras.Input(shape=X[0].shape),
+        keras.layers.Dense(20, activation="relu"),
+        keras.layers.Dense(20, activation="relu"),
+        keras.layers.Dense(20, activation="relu"),
+        keras.layers.Dense(1, activation = "sigmoid")
+    ])
+    medium_model.compile(optimizer =tf.keras.optimizers.SGD() ,loss = tf.keras.losses.BinaryCrossentropy())
     medium_model.fit(X,y, batch_size = 8, epochs = 50, validation_data = (X_test,y_test))#, callbacks = keras.callbacks.EarlyStopping())
     print("not as simple model:",medium_model.evaluate(X_test,y_test))
+    
+    pred_wrapper = DeepView.create_simple_wrapper(medium_model.predict)
+    
+    classes = np.arange(2)
+    batch_size = 32
+    max_samples = 500
+    data_shape = (768,)
+    resolution = 100
+    N = 10
+    lam = 0.64
+    cmap = 'tab10'
+    # to make shure deepview.show is blocking,
+    # disable interactive mode
+    interactive = False
+    title = 'nonlinear model - occupations'
+     
+    deepview = DeepView(pred_wrapper, classes, max_samples, batch_size, data_shape, 
+        N, lam, resolution, cmap, interactive, title)
+     
+    deepview.add_samples(X_test[:200], y_test[:200])
+    deepview.show()
     
 if __name__ == "__main__":
 
     #plot_average_history("results/", 5)
     
+
     
     #plot_history("race_modelmrpc")
     import tensorflow as tf
@@ -456,49 +669,156 @@ if __name__ == "__main__":
     tokenizer = BertTokenizer.from_pretrained('bert-base-uncased', output_hidden_states=True)
     batch_size = 4
     
-    
+   # plot_average_history("results/", 2)
     
 #     model = Understandable_Embedder()
 #     tokenized_inputs = tokenizer(["hallo du da", "ich bin hier"], max_length=128, padding=True, truncation=True, return_tensors='tf')
 #     print(model.call_pre_training(tokenized_inputs))
 #      
-    model = load_model("results/without/cola_normal_0/model")
-    gender_bias_test(model = model, pca_deb= True)
-    model = load_model("results/without/cola_normal_2/model")
-    gender_bias_test(model = model, pca_deb= True)
+    evaluate_model_bias("results/pre_gender_5000/train1/model", savepath= "bertpre.txt" )
+#     evaluate_model_set("results/Genderlarge/qnli_gender_large_", 5, save_path = "qnlifine.txt" )
+#     evaluate_model_set("results/Genderlarge/sst2_gender_large_", 5, save_path = "sst2fine.txt" )
+#     evaluate_model_set("results/Genderlarge/cola_gender_large_", 5, save_path = "colafine.txt" )
+# #     model = Understandable_Embedder()
+#     # gender_bias_test(model = model, pca_deb= True)
+#     plot_tsne(model)
+#     model = load_model("results/qnli_prefine_gender_0/model")
+#     plot_tsne(model)
+  #  gender_bias_test(model = model, pca_deb= True)
+#     model = load_model("results/Genderlarge/cola_gender_large_0/model")
+#     gender_bias_test_classification(model = model)
+#     model = load_model("results/Genderlarge/cola_gender_large_1/model")
+#     gender_bias_test_classification(model = model)
+
+#     model = load_model("results/cola_prefine_gender_0/model")
+#     gender_bias_test_classification(model = model, pca_deb= True)
 #     model = load_model("results/without/cola_normal_1/model")
-#     gender_bias_test(model = model)
+#     gender_bias_test_classification(model = model)
 #     model = load_model("results/Genderlarge/sst2_gender_large_0/model")
-#     gender_bias_test(model = model)
+#     gender_bias_test_classification(model = model)
 #     model = load_model("results/Genderlarge/sst2_gender_large_1/model")
-#     gender_bias_test(model = model)
+#     gender_bias_test_classification(model = model)
    # print("not pre trained:")
-   # gender_bias_test(model = Understandable_Embedder())
+#     model = Understandable_Embedder()
+#     gender_bias_test(model = model, pca_deb = True)
+    
+#     model = load_model("results/pre_gender_50000/model")
+#     lin,nonlin = gender_bias_test(model = model, pca_deb = True)
+#     
+#     
+#     linavg = 0
+#     nonlinavg = 0
+#     f =open('results.txt', 'w ')
+#  
+#     num = 5
+#     for i in range(num):
+#         model = load_model("results/colaprefine_debfreq1/train" + str(i)+ "/model")
+#         lin,nonlin = gender_bias_test(model = model, pca_deb = True)
+#         linavg += lin
+#         nonlinavg += nonlin
+#     print("linavg", linavg/num, file = f)
+#     print("nonlinavg", nonlinavg/num, file = f)
+#      
+#     linavg = 0
+#     nonlinavg = 0
+#     for i in range(num):
+#         model = load_model("results/sst2prefine_debfreq1/train" + str(i)+ "/model")
+#         lin,nonlin = gender_bias_test(model = model, pca_deb = True)
+#         linavg += lin
+#         nonlinavg += nonlin
+#     print("linavg", linavg/num, file = f)
+#     print("nonlinavg", nonlinavg/num, file = f)
+#  
+#     linavg = 0
+#     nonlinavg = 0
+#     for i in range(num):
+#         model = load_model("results/qnliprefine_debfreq1/train" + str(i)+ "/model")
+#         lin,nonlin = gender_bias_test(model = model, pca_deb = True)
+#         linavg += lin
+#         nonlinavg += nonlin
+#     print("linavg", linavg/num, file = f)
+#     print("nonlinavg", nonlinavg/num, file = f)
+# 
+#     linavg = 0
+#     nonlinavg = 0
+#     for i in range(num):
+#         model = load_model("results/colapre_lessfine_debfreq1/train" + str(i)+ "/model")
+#         lin,nonlin = gender_bias_test(model = model, pca_deb = True)
+#         linavg += lin
+#         nonlinavg += nonlin
+#     print("linavg", linavg/num, file = f)
+#     print("nonlinavg", nonlinavg/num, file = f)
+#      
+#     linavg = 0
+#     nonlinavg = 0
+#     for i in range(num):
+#         model = load_model("results/sst2pre_lessfine_debfreq1/train" + str(i)+ "/model")
+#         lin,nonlin = gender_bias_test(model = model, pca_deb = True)
+#         linavg += lin
+#         nonlinavg += nonlin
+#     print("linavg", linavg/num, file = f)
+#     print("nonlinavg", nonlinavg/num, file = f)
+#     
+#     linavg = 0
+#     nonlinavg = 0
+#     for i in range(num):
+#         model = load_model("results/qnlipre_lessfine_debfreq1/train" + str(i)+ "/model")
+#         lin,nonlin = gender_bias_test(model = model, pca_deb = True)
+#         linavg += lin
+#         nonlinavg += nonlin
+#     print("linavg", linavg/num, file = f)
+#     print("nonlinavg", nonlinavg/num, file = f)
+#     
+#     f.close()
+     
+#     for i in range(5):
+#         model = load_model("results/Genderlarge/sst2_gender_large_" + str(i)+ "/model")
+#         lin,nonlin = gender_bias_test(model = model)
+#         linavg += lin
+#         nonlinavg += nonlin
+#     print("linavg", linavg/5.0)
+#     print("nonlinavg", nonlinavg/5.0)
+#     
+#     
+#     for i in range(5):
+#         model = load_model("results/Genderlarge/qnli_gender_large_" + str(i)+ "/model")
+#         lin,nonlin = gender_bias_test(model = model)
+#         linavg += lin
+#         nonlinavg += nonlin
+#     print("linavg", linavg/5.0)
+#     print("nonlinavg", nonlinavg/5.0)
     
     
 #     task = "cola"  
 #     data = tfds.load('glue/'+task)
 #     dataset_length = data['test'].cardinality().numpy()
 #     dataset = glue_convert_examples_to_features(data['test'], tokenizer, max_length=128,  task=task)
-#             
-#     gender_acc = evaluate_average_model_accuracy("results/without/cola_normal_", dataset, dataset_length, 5)
+#              
+#     gender_acc = evaluate_average_model_accuracy("results/cola_prefine_gender_", dataset, dataset_length, 2)
 #     print("gender_acc cola:", gender_acc)
-    
-    
+#     
+#     gender_acc = evaluate_average_model_accuracy("results/cola_prefine_without_gender_", dataset, dataset_length, 2)
+#     print("gender_acc cola:", gender_acc)
+     
+     
 #     task = "sst2"  
 #     data = tfds.load('glue/'+task)
 #     task = "sst-2" 
 #     dataset_length = data['validation'].cardinality().numpy()
 #     dataset = glue_convert_examples_to_features(data['validation'], tokenizer, max_length=128,  task=task)
-#     gender_acc = evaluate_average_model_accuracy("results/SimpleLoss/sst2_gender_", dataset, dataset_length, 5)
+#     gender_acc = evaluate_average_model_accuracy("results/sst2_prefine_without_gender_", dataset, dataset_length, 2)
 #     print("gender_acc sst2:", gender_acc)
-#        
+#     gender_acc = evaluate_average_model_accuracy("results/sst2_prefine_gender_", dataset, dataset_length, 2)
+#     print("gender_acc sst2:", gender_acc)
+#          
+
+#     f =open('results.txt', 'w ')
 #     task = "qnli"  
 #     data = tfds.load('glue/'+task)
 #     dataset_length = data['validation'].cardinality().numpy()
 #     dataset = glue_convert_examples_to_features(data['validation'], tokenizer, max_length=128,  task=task)
-#     gender_acc = evaluate_average_model_accuracy("results/SimpleLoss/qnli_gender_", dataset, dataset_length, 5)
-#     print("gender_acc qnli:", gender_acc)
+#     gender_acc = evaluate_average_model_accuracy("results/qnli_prefine_gender_", dataset, dataset_length, 5)
+#     print("gender_acc qnli:", gender_acc, file = f)
 
 #        
 
@@ -522,7 +842,7 @@ if __name__ == "__main__":
 #     evaluate_model_set("results/race_con_",1,"results/race_con_mae.txt",delete_dim=False)
 #     evaluate_model_set("results/race_con_",1,"results/race_con_mae_del.txt",delete_dim=True)s
 #     evaluate_model_set("results/race_con_",5,"results/race_con_del.txt",delete_dim=True)
-   # evaluate_model_set("results/gender_",5,"results/gender_.txt",delete_dim=False)
+  #  evaluate_model_set("results/Genderlarge/cola_gender_large_",5,"results/Genderlargecola_gender_large.txt",delete_dim=False)
   #  evaluate_model_set("results/SimpleLoss/sst2_gender_",5,"results/SimpleLoss/sst2_gender_.txt",delete_dim=False)
   #  evaluate_model_set("results/without/qnli_normal_",5,"results/without/qnli_normal_.txt",delete_dim=False)
    # evaluate_model_set("results/mrpc_genderlarge_con_",3,"results/mrpc_genderlarge_con_.txt",delete_dim=False)

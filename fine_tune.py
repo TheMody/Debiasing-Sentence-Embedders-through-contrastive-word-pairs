@@ -18,7 +18,7 @@ if __name__ == "__main__":
     
     import tensorflow_datasets as tfds
 
-    epochs = 1
+    epochs = 5
     
     #create pretrain ds
 #     pretrain_ds = load_pretrain_ds(tokenizer)
@@ -64,11 +64,12 @@ if __name__ == "__main__":
         
         return history
     
-    def train_understandable(train_dataset, understanding_dataset,only_dense = False, save_path = "model"):
+    def train_understandable(train_dataset, understanding_dataset,only_dense = False, save_path = "model", load_path = "noload", debias_freq = 1 ):
         optimizer = tf.keras.optimizers.Adam(learning_rate=3e-5)
         loss = tf.keras.losses.SparseCategoricalCrossentropy()
-        model = Understandable_Embedder(batch_size, train_only_dense = only_dense)
-          
+        model = Understandable_Embedder(batch_size, train_only_dense = only_dense, debias_freq= debias_freq)
+        if not load_path == "noload":
+            model.load_weights(load_path) 
         model.compile(optimizer=optimizer, loss=loss,metrics=["sparse_categorical_accuracy"])
          
          
@@ -81,11 +82,12 @@ if __name__ == "__main__":
         
         return history
         
-    def train_normal(train_dataset,only_dense = False, save_path = "normal"):
+    def train_normal(train_dataset,only_dense = False, save_path = "normal", load_path = "noload"):
         optimizer = tf.keras.optimizers.Adam(learning_rate=3e-5)
         loss = tf.keras.losses.SparseCategoricalCrossentropy()
-        model_normal = Understandable_Embedder(batch_size, train_only_dense = only_dense)
-         
+        model_normal = Understandable_Embedder(batch_size, train_only_dense = only_dense)#, debias_freq = debias_freq)
+        if not load_path == "noload":
+            model_normal.load_weights(load_path)  
         model_normal.compile(optimizer=optimizer, loss=loss,metrics=["sparse_categorical_accuracy"])
         
       #  model.fit(train_dataset, epochs=2, steps_per_epoch=1840/batch_size) 
@@ -121,20 +123,22 @@ if __name__ == "__main__":
     tokenized_definition_train_gender_large = get_understanding_set(definition_pairs,tokenizer)
         
         
-    for i in range(5):
-       train_understandable_only(tokenized_definition_train_gender_large, save_path = ("gender_"+str(i)))
+
+       
     #iterate over glue tasks
-#     task_list = [  "qnli", "sst2", "cola"] # "sst2",["mrpc"]#,"cola"] #, "mnli"]
-#     for task in task_list:
-#         
-#         data = tfds.load('glue/'+task)
-#         if task == "sst2":
-#             task_name = "sst-2"
-#         else:
-#             task_name = task
-#         train_dataset = glue_convert_examples_to_features(data['train'], tokenizer, max_length=128,  task=task_name)
-#         train_dataset = train_dataset.shuffle(100).batch(batch_size).repeat(-1)
-#         
+    task_list = [  "cola"] # "sst2",["mrpc"]#,"cola"] #, "mnli"]"cola", "qnli", "sst2"
+    for task in task_list:
+         
+        data = tfds.load('glue/'+task)
+        if task == "sst2":
+            task_name = "sst-2"
+        else:
+            task_name = task
+        train_dataset = glue_convert_examples_to_features(data['train'], tokenizer, max_length=128,  task=task_name)
+        train_dataset = train_dataset.shuffle(100).batch(batch_size).repeat(-1)
+        for i in range(3,4):
+          #  train_understandable(train_dataset,tokenized_definition_train_gender_large, save_path = (task+"_prefine_gender_"+str(i)), load_path = "results/pre_gender_/model")  
+            train_understandable(train_dataset,tokenized_definition_train_gender_large, save_path = (task+"prefine_debfreq1/train"+str(i)), load_path = "results/pre_gender_5000/train1/model") 
 #       #  train_understandable_only(tokenized_definition_train_gender, save_path = (task+"only_understandable_gender"))
 #       #  train_understandable(train_dataset,tokenized_definition_train_gender, save_path = ("gender_con_0")) 
 #         for i in range(5):
