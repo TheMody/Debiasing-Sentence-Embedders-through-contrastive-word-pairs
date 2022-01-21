@@ -407,23 +407,30 @@ def generate_sentences(words):
     return sentences
 
 def plot_tsne(model):
-    import json
-    with open("professions.json") as f:
-        list = json.load(f)
-    
-    x = []
-    y = []
-    for element in list:
-        x.append(element[0])
-        y.append(element[2])    
-    y = np.asarray(y)
-    y = y*0.5+0.5
-    X = generate_sentences(x)  
-    new_X = []
-    for batch in X:
-        new_X.append(model.predict_simple(batch))
-    X = np.asarray(new_X)
-    X = np.mean(X, axis = 1)
+#     import json
+#     with open("professions.json") as f:
+#         list = json.load(f)
+#     
+#     x = []
+#     y = []
+#     for element in list:
+#         x.append(element[0])
+#         y.append(element[2])    
+#     y = np.asarray(y)
+#     y = y*0.5+0.5 #scale to 0-1
+    #X = generate_sentences(x)  
+    x = [" women ", " girl ", " female ", " she ", " actress ", " heroine ", " queen "," sister ", " mother ", " lady ", " her " ," men ", " boy ", " male ", " he ", " actor ", " hero ", " king ", " brother ", " father ", " gentleman ", " him "]
+    y = [0]*11
+    y2 = [1]*11
+    y = y + y2
+    X = model.predict_simple(x)
+    print(X)
+#     
+#     new_X = []
+#     for batch in X:
+#         new_X.append(model.predict_simple(batch))
+#     X = np.asarray(new_X)
+#     X = np.mean(X, axis = 1)
 
     from sklearn.manifold import TSNE
     X_embedded = TSNE(n_components=2).fit_transform(X.astype(np.float64))
@@ -669,6 +676,7 @@ if __name__ == "__main__":
     tokenizer = BertTokenizer.from_pretrained('bert-base-uncased', output_hidden_states=True)
     batch_size = 4
     
+    plot_tsne(model = Understandable_Embedder())
    # plot_average_history("results/", 2)
     
 #     model = Understandable_Embedder()
@@ -826,189 +834,189 @@ if __name__ == "__main__":
 #     print("gender_acc sst2:", gender_acc)
 #          
 
-    f =open('resultscolabias.txt', 'w')
-    
-    avglin = []
-    avgnonlin = []
-    for i in range(5):
-        model = load_model("results/colaBaselines/_baseline_" + str(i)+ "/model")
-        lin,nonlin = gender_bias_test(model = model)
-        avglin.append(lin)
-        avgnonlin.append(nonlin)
-      
-    print("Original Bert",  file = f)    
-    print("gender_acc lin qnli:", np.mean(avglin), file = f)    
-    print("gender_acc std qnli:", np.std(avglin), file = f)   
-    print("gender_acc nonlin qnli:", np.mean(avgnonlin), file = f)    
-    print("gender_acc std qnli:", np.std(avgnonlin), file = f)  
-    
-    avglin = []
-    avgnonlin = []
-    for i in range(5):
-        model = load_model("results/colaBaselines/_baseline_" + str(i)+ "/model")
-        lin,nonlin = gender_bias_test(model = model, pca_deb = True)
-        avglin.append(lin)
-        avgnonlin.append(nonlin)
-      
-    print("Original Bert Sent",  file = f)    
-    print("gender_acc lin qnli:", np.mean(avglin), file = f)    
-    print("gender_acc std qnli:", np.std(avglin), file = f)   
-    print("gender_acc nonlin qnli:", np.mean(avgnonlin), file = f)    
-    print("gender_acc std qnli:", np.std(avgnonlin), file = f)  
-    
-    avglin = []
-    avgnonlin = []
-    for i in range(5):
-        model = load_model("results/colaprefine_debfreq1/train" + str(i)+ "/model")
-        lin,nonlin = gender_bias_test(model = model)
-        avglin.append(lin)
-        avgnonlin.append(nonlin)
-      
-    print("Original Bert prefine",  file = f)    
-    print("gender_acc lin qnli:", np.mean(avglin), file = f)    
-    print("gender_acc std qnli:", np.std(avglin), file = f)   
-    print("gender_acc nonlin qnli:", np.mean(avgnonlin), file = f)    
-    print("gender_acc std qnli:", np.std(avgnonlin), file = f)  
-    
-    avglin = []
-    avgnonlin = []
-    for i in range(5):
-        model = load_model("results/Genderlarge/cola_gender_large_" + str(i)+ "/model")
-        lin,nonlin = gender_bias_test(model = model)
-        avglin.append(lin)
-        avgnonlin.append(nonlin)
-      
-    print("Original Bert fine",  file = f)    
-    print("gender_acc lin qnli:", np.mean(avglin), file = f)    
-    print("gender_acc std qnli:", np.std(avglin), file = f)   
-    print("gender_acc nonlin qnli:", np.mean(avgnonlin), file = f)    
-    print("gender_acc std qnli:", np.std(avgnonlin), file = f)  
-    
-  
-    f.close()
-    
-    f =open('resultssst2bias.txt', 'w')
-    
-    avglin = []
-    avgnonlin = []
-    for i in range(5):
-        model = load_model("results/sst2Baselines/_baseline_" + str(i)+ "/model")
-        lin,nonlin = gender_bias_test(model = model)
-        avglin.append(lin)
-        avgnonlin.append(nonlin)
-      
-    print("Original Bert",  file = f)    
-    print("gender_acc lin qnli:", np.mean(avglin), file = f)    
-    print("gender_acc std qnli:", np.std(avglin), file = f)   
-    print("gender_acc nonlin qnli:", np.mean(avgnonlin), file = f)    
-    print("gender_acc std qnli:", np.std(avgnonlin), file = f)  
-    
-    avglin = []
-    avgnonlin = []
-    for i in range(5):
-        model = load_model("results/sst2Baselines/_baseline_" + str(i)+ "/model")
-        lin,nonlin = gender_bias_test(model = model, pca_deb = True)
-        avglin.append(lin)
-        avgnonlin.append(nonlin)
-      
-    print("Original Bert Sent",  file = f)    
-    print("gender_acc lin qnli:", np.mean(avglin), file = f)    
-    print("gender_acc std qnli:", np.std(avglin), file = f)   
-    print("gender_acc nonlin qnli:", np.mean(avgnonlin), file = f)    
-    print("gender_acc std qnli:", np.std(avgnonlin), file = f)  
-    
-    avglin = []
-    avgnonlin = []
-    for i in range(5):
-        model = load_model("results/sst2prefine_debfreq1/train" + str(i)+ "/model")
-        lin,nonlin = gender_bias_test(model = model)
-        avglin.append(lin)
-        avgnonlin.append(nonlin)
-      
-    print("Original Bert prefine",  file = f)    
-    print("gender_acc lin qnli:", np.mean(avglin), file = f)    
-    print("gender_acc std qnli:", np.std(avglin), file = f)   
-    print("gender_acc nonlin qnli:", np.mean(avgnonlin), file = f)    
-    print("gender_acc std qnli:", np.std(avgnonlin), file = f)  
-    
-    avglin = []
-    avgnonlin = []
-    for i in range(5):
-        model = load_model("results/Genderlarge/sst2_gender_large_" + str(i)+ "/model")
-        lin,nonlin = gender_bias_test(model = model)
-        avglin.append(lin)
-        avgnonlin.append(nonlin)
-      
-    print("Original Bert fine",  file = f)    
-    print("gender_acc lin qnli:", np.mean(avglin), file = f)    
-    print("gender_acc std qnli:", np.std(avglin), file = f)   
-    print("gender_acc nonlin qnli:", np.mean(avgnonlin), file = f)    
-    print("gender_acc std qnli:", np.std(avgnonlin), file = f)  
-    
-  
-    f.close()
-    
-    f =open('resultsqnlibias.txt', 'w')
-    
-    avglin = []
-    avgnonlin = []
-    for i in range(5):
-        model = load_model("results/qnliBaselines/_baseline_" + str(i)+ "/model")
-        lin,nonlin = gender_bias_test(model = model)
-        avglin.append(lin)
-        avgnonlin.append(nonlin)
-      
-    print("Original Bert",  file = f)    
-    print("gender_acc lin qnli:", np.mean(avglin), file = f)    
-    print("gender_acc std qnli:", np.std(avglin), file = f)   
-    print("gender_acc nonlin qnli:", np.mean(avgnonlin), file = f)    
-    print("gender_acc std qnli:", np.std(avgnonlin), file = f)  
-    
-    avglin = []
-    avgnonlin = []
-    for i in range(5):
-        model = load_model("results/qnliBaselines/_baseline_" + str(i)+ "/model")
-        lin,nonlin = gender_bias_test(model = model, pca_deb = True)
-        avglin.append(lin)
-        avgnonlin.append(nonlin)
-      
-    print("Original Bert Sent",  file = f)    
-    print("gender_acc lin qnli:", np.mean(avglin), file = f)    
-    print("gender_acc std qnli:", np.std(avglin), file = f)   
-    print("gender_acc nonlin qnli:", np.mean(avgnonlin), file = f)    
-    print("gender_acc std qnli:", np.std(avgnonlin), file = f)  
-    
-    avglin = []
-    avgnonlin = []
-    for i in range(5):
-        model = load_model("results/qnliprefine_debfreq1/train" + str(i)+ "/model")
-        lin,nonlin = gender_bias_test(model = model)
-        avglin.append(lin)
-        avgnonlin.append(nonlin)
-      
-    print("Original Bert prefine",  file = f)    
-    print("gender_acc lin qnli:", np.mean(avglin), file = f)    
-    print("gender_acc std qnli:", np.std(avglin), file = f)   
-    print("gender_acc nonlin qnli:", np.mean(avgnonlin), file = f)    
-    print("gender_acc std qnli:", np.std(avgnonlin), file = f)  
-    
-    avglin = []
-    avgnonlin = []
-    for i in range(5):
-        model = load_model("results/Genderlarge/qnli_gender_large_" + str(i)+ "/model")
-        lin,nonlin = gender_bias_test(model = model)
-        avglin.append(lin)
-        avgnonlin.append(nonlin)
-      
-    print("Original Bert fine",  file = f)    
-    print("gender_acc lin qnli:", np.mean(avglin), file = f)    
-    print("gender_acc std qnli:", np.std(avglin), file = f)   
-    print("gender_acc nonlin qnli:", np.mean(avgnonlin), file = f)    
-    print("gender_acc std qnli:", np.std(avgnonlin), file = f)  
-    
-  
-    f.close()
-    
+#     f =open('resultscolabias.txt', 'w')
+#     
+#     avglin = []
+#     avgnonlin = []
+#     for i in range(5):
+#         model = load_model("results/colaBaselines/_baseline_" + str(i)+ "/model")
+#         lin,nonlin = gender_bias_test(model = model)
+#         avglin.append(lin)
+#         avgnonlin.append(nonlin)
+#       
+#     print("Original Bert",  file = f)    
+#     print("gender_acc lin qnli:", np.mean(avglin), file = f)    
+#     print("gender_acc std qnli:", np.std(avglin), file = f)   
+#     print("gender_acc nonlin qnli:", np.mean(avgnonlin), file = f)    
+#     print("gender_acc std qnli:", np.std(avgnonlin), file = f)  
+#     
+#     avglin = []
+#     avgnonlin = []
+#     for i in range(5):
+#         model = load_model("results/colaBaselines/_baseline_" + str(i)+ "/model")
+#         lin,nonlin = gender_bias_test(model = model, pca_deb = True)
+#         avglin.append(lin)
+#         avgnonlin.append(nonlin)
+#       
+#     print("Original Bert Sent",  file = f)    
+#     print("gender_acc lin qnli:", np.mean(avglin), file = f)    
+#     print("gender_acc std qnli:", np.std(avglin), file = f)   
+#     print("gender_acc nonlin qnli:", np.mean(avgnonlin), file = f)    
+#     print("gender_acc std qnli:", np.std(avgnonlin), file = f)  
+#     
+#     avglin = []
+#     avgnonlin = []
+#     for i in range(5):
+#         model = load_model("results/colaprefine_debfreq1/train" + str(i)+ "/model")
+#         lin,nonlin = gender_bias_test(model = model)
+#         avglin.append(lin)
+#         avgnonlin.append(nonlin)
+#       
+#     print("Original Bert prefine",  file = f)    
+#     print("gender_acc lin qnli:", np.mean(avglin), file = f)    
+#     print("gender_acc std qnli:", np.std(avglin), file = f)   
+#     print("gender_acc nonlin qnli:", np.mean(avgnonlin), file = f)    
+#     print("gender_acc std qnli:", np.std(avgnonlin), file = f)  
+#     
+#     avglin = []
+#     avgnonlin = []
+#     for i in range(5):
+#         model = load_model("results/Genderlarge/cola_gender_large_" + str(i)+ "/model")
+#         lin,nonlin = gender_bias_test(model = model)
+#         avglin.append(lin)
+#         avgnonlin.append(nonlin)
+#       
+#     print("Original Bert fine",  file = f)    
+#     print("gender_acc lin qnli:", np.mean(avglin), file = f)    
+#     print("gender_acc std qnli:", np.std(avglin), file = f)   
+#     print("gender_acc nonlin qnli:", np.mean(avgnonlin), file = f)    
+#     print("gender_acc std qnli:", np.std(avgnonlin), file = f)  
+#     
+#   
+#     f.close()
+#     
+#     f =open('resultssst2bias.txt', 'w')
+#     
+#     avglin = []
+#     avgnonlin = []
+#     for i in range(5):
+#         model = load_model("results/sst2Baselines/_baseline_" + str(i)+ "/model")
+#         lin,nonlin = gender_bias_test(model = model)
+#         avglin.append(lin)
+#         avgnonlin.append(nonlin)
+#       
+#     print("Original Bert",  file = f)    
+#     print("gender_acc lin qnli:", np.mean(avglin), file = f)    
+#     print("gender_acc std qnli:", np.std(avglin), file = f)   
+#     print("gender_acc nonlin qnli:", np.mean(avgnonlin), file = f)    
+#     print("gender_acc std qnli:", np.std(avgnonlin), file = f)  
+#     
+#     avglin = []
+#     avgnonlin = []
+#     for i in range(5):
+#         model = load_model("results/sst2Baselines/_baseline_" + str(i)+ "/model")
+#         lin,nonlin = gender_bias_test(model = model, pca_deb = True)
+#         avglin.append(lin)
+#         avgnonlin.append(nonlin)
+#       
+#     print("Original Bert Sent",  file = f)    
+#     print("gender_acc lin qnli:", np.mean(avglin), file = f)    
+#     print("gender_acc std qnli:", np.std(avglin), file = f)   
+#     print("gender_acc nonlin qnli:", np.mean(avgnonlin), file = f)    
+#     print("gender_acc std qnli:", np.std(avgnonlin), file = f)  
+#     
+#     avglin = []
+#     avgnonlin = []
+#     for i in range(5):
+#         model = load_model("results/sst2prefine_debfreq1/train" + str(i)+ "/model")
+#         lin,nonlin = gender_bias_test(model = model)
+#         avglin.append(lin)
+#         avgnonlin.append(nonlin)
+#       
+#     print("Original Bert prefine",  file = f)    
+#     print("gender_acc lin qnli:", np.mean(avglin), file = f)    
+#     print("gender_acc std qnli:", np.std(avglin), file = f)   
+#     print("gender_acc nonlin qnli:", np.mean(avgnonlin), file = f)    
+#     print("gender_acc std qnli:", np.std(avgnonlin), file = f)  
+#     
+#     avglin = []
+#     avgnonlin = []
+#     for i in range(5):
+#         model = load_model("results/Genderlarge/sst2_gender_large_" + str(i)+ "/model")
+#         lin,nonlin = gender_bias_test(model = model)
+#         avglin.append(lin)
+#         avgnonlin.append(nonlin)
+#       
+#     print("Original Bert fine",  file = f)    
+#     print("gender_acc lin qnli:", np.mean(avglin), file = f)    
+#     print("gender_acc std qnli:", np.std(avglin), file = f)   
+#     print("gender_acc nonlin qnli:", np.mean(avgnonlin), file = f)    
+#     print("gender_acc std qnli:", np.std(avgnonlin), file = f)  
+#     
+#   
+#     f.close()
+#     
+#     f =open('resultsqnlibias.txt', 'w')
+#     
+#     avglin = []
+#     avgnonlin = []
+#     for i in range(5):
+#         model = load_model("results/qnliBaselines/_baseline_" + str(i)+ "/model")
+#         lin,nonlin = gender_bias_test(model = model)
+#         avglin.append(lin)
+#         avgnonlin.append(nonlin)
+#       
+#     print("Original Bert",  file = f)    
+#     print("gender_acc lin qnli:", np.mean(avglin), file = f)    
+#     print("gender_acc std qnli:", np.std(avglin), file = f)   
+#     print("gender_acc nonlin qnli:", np.mean(avgnonlin), file = f)    
+#     print("gender_acc std qnli:", np.std(avgnonlin), file = f)  
+#     
+#     avglin = []
+#     avgnonlin = []
+#     for i in range(5):
+#         model = load_model("results/qnliBaselines/_baseline_" + str(i)+ "/model")
+#         lin,nonlin = gender_bias_test(model = model, pca_deb = True)
+#         avglin.append(lin)
+#         avgnonlin.append(nonlin)
+#       
+#     print("Original Bert Sent",  file = f)    
+#     print("gender_acc lin qnli:", np.mean(avglin), file = f)    
+#     print("gender_acc std qnli:", np.std(avglin), file = f)   
+#     print("gender_acc nonlin qnli:", np.mean(avgnonlin), file = f)    
+#     print("gender_acc std qnli:", np.std(avgnonlin), file = f)  
+#     
+#     avglin = []
+#     avgnonlin = []
+#     for i in range(5):
+#         model = load_model("results/qnliprefine_debfreq1/train" + str(i)+ "/model")
+#         lin,nonlin = gender_bias_test(model = model)
+#         avglin.append(lin)
+#         avgnonlin.append(nonlin)
+#       
+#     print("Original Bert prefine",  file = f)    
+#     print("gender_acc lin qnli:", np.mean(avglin), file = f)    
+#     print("gender_acc std qnli:", np.std(avglin), file = f)   
+#     print("gender_acc nonlin qnli:", np.mean(avgnonlin), file = f)    
+#     print("gender_acc std qnli:", np.std(avgnonlin), file = f)  
+#     
+#     avglin = []
+#     avgnonlin = []
+#     for i in range(5):
+#         model = load_model("results/Genderlarge/qnli_gender_large_" + str(i)+ "/model")
+#         lin,nonlin = gender_bias_test(model = model)
+#         avglin.append(lin)
+#         avgnonlin.append(nonlin)
+#       
+#     print("Original Bert fine",  file = f)    
+#     print("gender_acc lin qnli:", np.mean(avglin), file = f)    
+#     print("gender_acc std qnli:", np.std(avglin), file = f)   
+#     print("gender_acc nonlin qnli:", np.mean(avgnonlin), file = f)    
+#     print("gender_acc std qnli:", np.std(avgnonlin), file = f)  
+#     
+#   
+#     f.close()
+#     
 
 #        
 
