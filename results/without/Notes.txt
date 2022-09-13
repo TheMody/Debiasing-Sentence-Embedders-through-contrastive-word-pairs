@@ -1,3 +1,0 @@
-gender_acc qnli: 0.8049048316251831    
-gender_acc cola: 0.775   
-gender_acc sst2: 0.8681192660550459       

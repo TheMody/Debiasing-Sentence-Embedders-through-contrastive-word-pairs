@@ -13,8 +13,8 @@ if __name__ == "__main__":
     from transformers import BertTokenizer, glue_convert_examples_to_features
     import tensorflow as tf
     gpus = tf.config.experimental.list_physical_devices('GPU')
-    for gpu in gpus:
-        tf.config.experimental.set_memory_growth(gpu, True)
+    # for gpu in gpus:
+    #     tf.config.experimental.set_memory_growth(gpu, True)
     
     import tensorflow_datasets as tfds
 
@@ -118,15 +118,15 @@ if __name__ == "__main__":
 #        
 #     tokenized_definition_train_gender = get_understanding_set(definition_pairs,tokenizer)
 
-    definition_pairs = [[[" women ", " girl ", " female ", " she ", " actress ", " heroine ", " queen "," sister ", " mother ", " lady ", " her " ],[" men ", " boy ", " male ", " he ", " actor ", " hero ", " king ", " brother ", " father ", " gentleman ", " him "]]]
+    # definition_pairs = [[[" women ", " girl ", " female ", " she ", " actress ", " heroine ", " queen "," sister ", " mother ", " lady ", " her " ],[" men ", " boy ", " male ", " he ", " actor ", " hero ", " king ", " brother ", " father ", " gentleman ", " him "]]]
        
-    tokenized_definition_train_gender_large = get_understanding_set(definition_pairs,tokenizer)
+    # tokenized_definition_train_gender_large = get_understanding_set(definition_pairs,tokenizer)
         
         
 
        
     #iterate over glue tasks
-    task_list = [  "cola"] # "sst2",["mrpc"]#,"cola"] #, "mnli"]"cola", "qnli", "sst2"
+    task_list = [  "sst2", "qnli"] # "sst2",["mrpc"]#,"cola"] #, "mnli"]"cola", "qnli", "sst2"
     for task in task_list:
          
         data = tfds.load('glue/'+task)
@@ -136,9 +136,10 @@ if __name__ == "__main__":
             task_name = task
         train_dataset = glue_convert_examples_to_features(data['train'], tokenizer, max_length=128,  task=task_name)
         train_dataset = train_dataset.shuffle(100).batch(batch_size).repeat(-1)
-        for i in range(3,4):
+        for i in range(0,5):
+            train_normal(train_dataset, save_path = (task+"fine/train"+str(i)))
           #  train_understandable(train_dataset,tokenized_definition_train_gender_large, save_path = (task+"_prefine_gender_"+str(i)), load_path = "results/pre_gender_/model")  
-            train_understandable(train_dataset,tokenized_definition_train_gender_large, save_path = (task+"prefine_debfreq1/train"+str(i)), load_path = "results/pre_gender_5000/train1/model") 
+           # train_understandable(train_dataset,tokenized_definition_train_gender_large, save_path = (task+"prefine_debfreq1/train"+str(i)), load_path = "results/pre_gender_5000/train1/model") 
 #       #  train_understandable_only(tokenized_definition_train_gender, save_path = (task+"only_understandable_gender"))
 #       #  train_understandable(train_dataset,tokenized_definition_train_gender, save_path = ("gender_con_0")) 
 #         for i in range(5):

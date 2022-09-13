@@ -74,12 +74,22 @@ def load_model(modelpath):
     model = Understandable_Embedder()
     model.load_weights(modelpath)
     return model
+
 def evaluate_model_accuracy(modelpath, eval_ds, dataset_length):    
     model = Understandable_Embedder()
-    model.load_weights(modelpath)
+    if not modelpath == "":
+        model.load_weights(modelpath)
 
     eval_ds = eval_ds.batch(batch_size)
     return model.evaluate(eval_ds, batch_size, dataset_length)
+
+def evaluate_model_accuracy_project(modelpath, eval_ds, dataset_length, P):    
+    model = Understandable_Embedder()
+    if not modelpath == "":
+        model.load_weights(modelpath)
+
+    eval_ds = eval_ds.batch(batch_size)
+    return model.eval_simple_project(eval_ds, batch_size, dataset_length,P)
 
 def evaluate_average_model_accuracy(path,eval_ds, dataset_length, intervall):
     average = 0.0
@@ -408,14 +418,16 @@ def generate_sentences(words):
 
 def plot_tsne(model):
     import json
-    with open("professions.json") as f:
-        list = json.load(f)
-    
-    x = []
-    y = []
-    for element in list:
-        x.append(element[0])
-        y.append(element[2])    
+#     with open("professions.json") as f:
+#         list = json.load(f)
+#     
+#     x = []
+#     y = []
+#     for element in list:
+#         x.append(element[0])
+#         y.append(element[2])    
+    x = ["women", "man", "boy", "girl"]
+    y = [-1,1,1,-1]
     y = np.asarray(y)
     y = y*0.5+0.5
     X = generate_sentences(x)  
@@ -431,7 +443,7 @@ def plot_tsne(model):
     plt.show()
     return
     
-def gender_bias_test(model,pca_deb=False):
+def gender_bias_test(model,pca_deb=False, null = False):
     import json
     with open("professions.json") as f:
         list = json.load(f)
@@ -476,6 +488,11 @@ def gender_bias_test(model,pca_deb=False):
 #     X_test = new_x
     
     X = model.predict_simple(X)
+
+    if null:
+   #     y_class = np.asarray([np.round(label) for label in y])
+        P = nullspace(model)
+        X = np.transpose(np.matmul(P,np.transpose(X)))
  #   X_test = model.predict_simple(X_test)
   #  print(len(y))
     
@@ -650,6 +667,65 @@ def gender_bias_test_classification(model,pca_deb=False):
      
     deepview.add_samples(X_test[:200], y_test[:200])
     deepview.show()
+
+from nullspaceproject import get_debiasing_projection
+from sklearn.linear_model import SGDClassifier, Perceptron, LogisticRegression
+def nullspace(model):
+    import json
+    with open("professions.json") as f:
+        list = json.load(f)
+    
+    x = []
+    y = []
+    for element in list:
+        x.append(element[0])
+        y.append(element[2])
+    
+
+
+    X = generate_sentences(x)  
+
+    new_y = []
+    new_x =[]
+    for i,batch in enumerate(X):
+        for i in range(len(batch)):
+            new_y.append(y[i])
+        for sentence in batch:
+            new_x.append(sentence)
+    
+    y = new_y
+    y = np.asarray(y)
+    y = y*0.5+0.5
+    X = new_x
+    
+    
+#     X_test = generate_sentences(X_test)  
+#     new_y = []
+#     new_x = []
+#     for i,batch in enumerate(X_test):
+#         for i in range(len(batch)):
+#             new_y.append(y_test[i])
+#         for sentence in batch:
+#             new_x.append(sentence)
+#     
+#     y_test = new_y
+#     y_test = np.asarray(y_test)
+#     y_test = y_test*0.5+0.5
+#     X_test = new_x
+    
+    X = model.predict_simple(X)
+
+    y = np.asarray([np.round(label) for label in y])
+
+    num_classifiers = 20
+    classifier_class = SGDClassifier #Perceptron
+    input_dim = 768
+    is_autoregressive = True
+    min_accuracy = 0.0
+
+    P, rowspace_projections, Ws = get_debiasing_projection(classifier_class, {}, num_classifiers, input_dim, is_autoregressive, min_accuracy, X, y, X, y, by_class = False)
+
+    return P
     
 if __name__ == "__main__":
 
@@ -660,8 +736,8 @@ if __name__ == "__main__":
     #plot_history("race_modelmrpc")
     import tensorflow as tf
     gpus = tf.config.experimental.list_physical_devices('GPU')
-    for gpu in gpus:
-        tf.config.experimental.set_memory_growth(gpu, True)
+    # for gpu in gpus:
+    #     tf.config.experimental.set_memory_growth(gpu, True)
     tf.compat.v1.logging.set_verbosity(tf.compat.v1.logging.ERROR)
     
     import tensorflow_datasets as tfds
@@ -675,16 +751,64 @@ if __name__ == "__main__":
 #     tokenized_inputs = tokenizer(["hallo du da", "ich bin hier"], max_length=128, padding=True, truncation=True, return_tensors='tf')
 #     print(model.call_pre_training(tokenized_inputs))
 #      
-    evaluate_model_bias("results/pre_gender_5000/train1/model", savepath= "bertpre.txt" )
+#    evaluate_model_bias("results/pre_gender_5000/train1/model", savepath= "bertpre.txt" )
 #     evaluate_model_set("results/Genderlarge/qnli_gender_large_", 5, save_path = "qnlifine.txt" )
 #     evaluate_model_set("results/Genderlarge/sst2_gender_large_", 5, save_path = "sst2fine.txt" )
-#     evaluate_model_set("results/Genderlarge/cola_gender_large_", 5, save_path = "colafine.txt" )
-# #     model = Understandable_Embedder()
-#     # gender_bias_test(model = model, pca_deb= True)
+# #     evaluate_model_set("results/Genderlarge/cola_gender_large_", 5, save_path = "colafine.txt" )
+#     model = Understandable_Embedder()
+# #     # gender_bias_test(model = model, pca_deb= True)
 #     plot_tsne(model)
 #     model = load_model("results/qnli_prefine_gender_0/model")
 #     plot_tsne(model)
-  #  gender_bias_test(model = model, pca_deb= True)
+
+
+
+
+    task = "cola"  
+    if task == "sst2":
+        task_name = "sst-2"
+    else:
+        task_name = task
+    data = tfds.load('glue/'+task)
+    dataset_length = data['validation'].cardinality().numpy()
+    dataset = glue_convert_examples_to_features(data['validation'], tokenizer, max_length=128,  task=task_name)
+  #  acc = evaluate_model_accuracy("results/colafine/train3/model", dataset, dataset_length)
+   # P = np.identity(768)
+    
+    accs =[]
+    lin_biases = []
+    nonlin_biases = []
+    for i in range(1):
+        model_load_path = "results/"+task+"fine/train"+str(i)+ "/model"
+        model = load_model(model_load_path)
+       # model = Understandable_Embedder()
+        P = nullspace(model)
+        acc = evaluate_model_accuracy_project(model_load_path, dataset, dataset_length, P)
+        accs.append(acc)
+        lin_bias, nonlin_bias = gender_bias_test(model = model, null= True)
+        lin_biases.append(lin_bias)
+        print("lin_bias", lin_bias)
+        nonlin_biases.append(nonlin_bias)
+        print("nonlin_bias", nonlin_bias)
+        print("acc", acc)
+
+    def printmeanvar(list):
+        mean = np.mean(list)
+        std = np.std(list)
+        print("mean", mean)
+        print("std", std)
+    print("accs")
+    printmeanvar(accs)
+    print("lin_biases")
+    printmeanvar(lin_biases)
+    print("nonlin_biases")
+    printmeanvar(nonlin_biases)
+    print("extra")
+#    P = nullspace(model)
+  #  P = np.identity(768)
+   # acc = model.eval_simple_project(dataset, P, dataset_length)
+  #  print(acc)
+  #  
 #     model = load_model("results/Genderlarge/cola_gender_large_0/model")
 #     gender_bias_test_classification(model = model)
 #     model = load_model("results/Genderlarge/cola_gender_large_1/model")
@@ -813,9 +937,7 @@ if __name__ == "__main__":
 #          
 
 #     f =open('results.txt', 'w ')
-#     task = "qnli"  
-#     data = tfds.load('glue/'+task)
-#     dataset_length = data['validation'].cardinality().numpy()
+
 #     dataset = glue_convert_examples_to_features(data['validation'], tokenizer, max_length=128,  task=task)
 #     gender_acc = evaluate_average_model_accuracy("results/qnli_prefine_gender_", dataset, dataset_length, 5)
 #     print("gender_acc qnli:", gender_acc, file = f)
@@ -830,7 +952,7 @@ if __name__ == "__main__":
   #  print("acc:", acc)
  #   print(evaluate_model_accuracy("results/gender_con_0/model", dataset,dataset_length))
     
-  #  evaluate_model_accuracy("race_only_dense/understandable/model", dataset)
+    
 #     evaluate_model_accuracy("race_modelmrpc/understandable/model", dataset)
 #     evaluate_model_accuracy("gender_contrastive/understandable/model", dataset)
 #     evaluate_model_accuracy("race_contrastive/understandable/model", dataset)

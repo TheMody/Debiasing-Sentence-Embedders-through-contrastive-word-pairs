@@ -23,11 +23,15 @@ class Understandable_Embedder(tf.keras.Model):
       self.debiasing_freq = debias_freq
       self.mask_token = "[MASK]"
       self.masked_id = 103
-      
+        
+
+
+
     
     
     def __call__(self, inputs, training = False):
-      x = self.bert.bert(inputs,training=training)[1]
+      x = self.bert.bert(inputs,training=training).last_hidden_state[:,0]
+     # print(x)
     #  x = self.dense_headless(x)
       x = self.dropout(x,training=training)
       if self.train_only_dense:
@@ -40,11 +44,88 @@ class Understandable_Embedder(tf.keras.Model):
         return outputs
     
     def call_headless(self, inputs, training = False):
-      x = self.bert.bert(inputs,training=training)[1]
+      x = self.bert.bert(inputs,training=training).last_hidden_state[:,0]
       if self.train_only_dense:
           x = self.dense_projection(x)
+      x = self.dropout(x,training=training)
    #   x = self.dense_headless(x)
       return x
+
+
+    # def eval_simple_project(self,dataset,P, dataset_length):
+    #     # accuracy = 0
+    #     # step = 0
+    #     # for x,y in dataset:
+    #     #     step = step + self.batch_size
+    #     #     if step > dataset_length:
+    #     #         break
+    #     #     x = self.call_headless(x,training=False)
+    #     #     x = np.matmul(P,x.numpy().transpose()).transpose()
+    #     #     y_pred = self.dense(tf.convert_to_tensor(x))
+    #     #     for i,pred in enumerate(y_pred):
+    #     #             if np.argmax(y_pred[i].numpy()) == y[i].numpy():
+    #     #                 accuracy = accuracy +1.0
+    #     # accuracy = accuracy /dataset_length
+
+
+    #     accuracy = 0.0
+    #     step = 0
+        
+    #     for x,y in dataset:
+    #         step = step + self.batch_size
+    #         if step > dataset_length :
+    #             break
+    #         # x = self.call_headless(x,training=False)
+    #         # x = np.matmul(P,x.numpy().transpose()).transpose()
+    #         # y_pred = self.dense(tf.convert_to_tensor(x))
+    #       #  print(y_pred)
+    #         y_pred = self(x,training = False)
+    #         # print(y_pred)
+    #         for i,pred in enumerate(y):
+    #             if np.argmax(y_pred[i].numpy()) == pred.numpy():
+    #                 accuracy = accuracy +1.0
+    #     accuracy = accuracy /step
+    #     return accuracy
+    def eval_simple_project(self, dataset, batch_size, dataset_length, P, verbose = False):
+        accuracy = 0.0
+        step = 0
+        
+        for x,y in dataset:
+            step = step + batch_size
+            if step > dataset_length :
+                break
+            x = self.call_headless(x,training=False)
+            x = np.matmul(P,x.numpy().transpose()).transpose()
+            y_pred = self.dense(tf.convert_to_tensor(x))
+            #y_pred = self(x,training=False)
+           # print(y_pred)
+            if verbose:
+                if step % np.round(dataset_length/5) < batch_size: 
+                    print("at", step, "of", dataset_length)
+            for i,pred in enumerate(y):
+                if np.argmax(y_pred[i].numpy()) == pred.numpy():
+                    accuracy = accuracy +1.0
+        accuracy = accuracy /step
+        return accuracy
+
+    def evaluate(self, dataset, batch_size, dataset_length, verbose = False):
+        accuracy = 0.0
+        step = 0
+        
+        for x,y in dataset:
+            step = step + batch_size
+            if step > dataset_length :
+                break
+            y_pred = self(x,training=False)
+           # print(y_pred)
+            if verbose:
+                if step % np.round(dataset_length/5) < batch_size: 
+                    print("at", step, "of", dataset_length)
+            for i,pred in enumerate(y):
+                if np.argmax(y_pred[i].numpy()) == pred.numpy():
+                    accuracy = accuracy +1.0
+        accuracy = accuracy /step
+        return accuracy
   
     def predict_simple(self,inputs):
         if len(inputs) > self.batch_size:
@@ -237,23 +318,7 @@ class Understandable_Embedder(tf.keras.Model):
  
         return history
     
-    def evaluate(self, dataset, batch_size, dataset_length, verbose = False):
-        accuracy = 0.0
-        step = 0
-        
-        for x,y in dataset:
-            step = step + batch_size
-            if step > dataset_length :
-                break
-            y_pred = self(x)
-            if verbose:
-                if step % np.round(dataset_length/5) < batch_size: 
-                    print("at", step, "of", dataset_length)
-            for i,pred in enumerate(y):
-                if np.argmax(y_pred[i].numpy()) == pred.numpy():
-                    accuracy = accuracy +1.0
-        accuracy = accuracy /step
-        return accuracy
+  
     
 #     def compute_loss(self, labels: tf.Tensor, logits: tf.Tensor) -> tf.Tensor:
 #         loss_fn = tf.keras.losses.SparseCategoricalCrossentropy(
