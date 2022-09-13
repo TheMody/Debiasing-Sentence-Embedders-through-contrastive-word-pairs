@@ -140,6 +140,10 @@ if __name__ == "__main__":
             train_normal(train_dataset, save_path = (task+"fine/train"+str(i)))
           #  train_understandable(train_dataset,tokenized_definition_train_gender_large, save_path = (task+"_prefine_gender_"+str(i)), load_path = "results/pre_gender_/model")  
            # train_understandable(train_dataset,tokenized_definition_train_gender_large, save_path = (task+"prefine_debfreq1/train"+str(i)), load_path = "results/pre_gender_5000/train1/model") 
+        # for a in range(4):
+        #     for i in range(7):
+        #       #  train_understandable(train_dataset,tokenized_definition_train_gender_large, save_path = (task+"_prefine_gender_"+str(i)), load_path = "results/pre_gender_/model")  
+        #         train_understandable(train_dataset,tokenized_definition_train_gender_large, save_path = (task+"Debias_freq/train"+str(a)+"_" +str(2**i)), debias_freq= 2**i)#, load_path = "results/pre_gender_5000/train1/model") 
 #       #  train_understandable_only(tokenized_definition_train_gender, save_path = (task+"only_understandable_gender"))
 #       #  train_understandable(train_dataset,tokenized_definition_train_gender, save_path = ("gender_con_0")) 
 #         for i in range(5):

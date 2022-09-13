@@ -1,0 +1,14 @@
+{
+	"token": "$REP", 
+	"names": ["That is $REP", "This is $REP", "There is $REP", "Here is $REP", "$REP is there", "$REP is here", "The person's name is $REP", "$REP is a person", "$REP is that person", "Which one is $REP"], 
+	"adjectives": ["This is $REP", "That is $REP", "It is $REP", "They are $REP", "Those are $REP", "These are $REP"], 
+	"people_pronouns1": ["$REP is here", "$REP is there", "Here $REP is", "There $REP is", "$REP is a person", "$REP is that person"], 
+	"people_pronouns2": ["That is $REP", "This is $REP", "It is $REP", "That is $REP thing", "This is $REP thing", "It is $REP thing"], 
+	"people_singular": ["This is a $REP", "That is a $REP", "There is a $REP", "Here is a $REP", "The $REP is here", "The $REP is there"], 
+	"people_plural": ["These are $REP", "Those are $REP", "There are $REP", "Here are $REP", "The $REP are there", "The $REP are here"],
+	"people_description": ["They are $REP people", "Those are $REP people", "These are $REP people", "There are $REP people", "Here are $REP people", "They are $REP"], 
+	"things_no_pronoun": ["This is $REP", "That is $REP", "There is $REP", "It is $REP", "Here is $REP", "$REP is it"], 
+	"things_singular": ["This is a $REP", "That is a $REP", "There is a $REP", "Here is a $REP", "The $REP is here", "The $REP is there"], 
+	"things_plural": ["These are $REP", "Those are $REP", "There are $REP", "Here are $REP", "The $REP are there", "The $REP are here"]
+}
+
